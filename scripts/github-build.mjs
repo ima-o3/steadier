@@ -5,8 +5,8 @@ import { mkdir,writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const [command='status',runId,jobId]=process.argv.slice(2);
-if(!['status','jobs','logs','download'].includes(command)||!/^\d+$/.test(runId||'')){
-  console.error('Usage: node scripts/github-build.mjs status|jobs|logs|download RUN_ID [JOB_OR_ARTIFACT_ID]');
+if(!['status','jobs','logs','progress','download'].includes(command)||!/^\d+$/.test(runId||'')){
+  console.error('Usage: node scripts/github-build.mjs status|jobs|logs|progress|download RUN_ID [JOB_ID]');
   process.exit(1);
 }
 const credential=spawnSync('git',['credential','fill'],{input:'protocol=https\nhost=github.com\n\n',encoding:'utf8',env:{...process.env,GIT_TERMINAL_PROMPT:'0'}});
@@ -19,6 +19,6 @@ async function request(endpoint){const response=await fetch(api+endpoint,{header
 try{
   if(command==='status'){const r=await(await request(`/actions/runs/${runId}`)).json();console.log(JSON.stringify({id:r.id,status:r.status,conclusion:r.conclusion,url:r.html_url,head:r.head_sha},null,2));}
   if(command==='jobs'){const r=await(await request(`/actions/runs/${runId}/jobs`)).json();console.log(JSON.stringify(r.jobs.map(j=>({id:j.id,name:j.name,status:j.status,conclusion:j.conclusion,steps:j.steps.map(s=>({name:s.name,status:s.status,conclusion:s.conclusion}))})),null,2));}
-  if(command==='logs'){if(!/^\d+$/.test(jobId||''))throw new Error('Supply a numeric job ID.');const text=await(await request(`/actions/jobs/${jobId}/logs`)).text();console.log(text.split(/\r?\n/).slice(-160).join('\n'));}
+  if(command==='logs'||command==='progress'){if(!/^\d+$/.test(jobId||''))throw new Error('Supply a numeric job ID.');const text=await(await request(`/actions/jobs/${jobId}/logs`)).text();await mkdir('build/logs',{recursive:true});await writeFile(`build/logs/cloud-${runId}-${jobId}.log`,text);const lines=text.split(/\r?\n/);const selected=command==='logs'?lines.slice(-160):lines.filter(line=>/error:|\*\* BUILD|Process completed|Refusing|Verified SQLCipher|SwiftCompile|CompileC |SwiftEmitModule|^.*Z (Ld |Touch |Validate |CreateUniversalBinary )/.test(line)).slice(-12).map(line=>{const target=line.match(/in target '([^']+)'/);return target?`${line.slice(0,28)} ${line.match(/SwiftCompile|CompileC|SwiftEmitModule|Ld |Touch |Validate |CreateUniversalBinary/)?.[0]||'Build'}: ${target[1]}`:line.slice(0,1200);});console.log(selected.join('\n'));}
   if(command==='download'){const r=await(await request(`/actions/runs/${runId}/artifacts`)).json();const artifact=r.artifacts.find(a=>a.name==='Steadier-unsigned-iphone'&&!a.expired);if(!artifact)throw new Error('No completed IPA artifact is available yet.');const response=await request(`/actions/artifacts/${artifact.id}/zip`);const folder=path.resolve('build','downloads');await mkdir(folder,{recursive:true});const target=path.join(folder,`Steadier-unsigned-iphone-${runId}.zip`);await writeFile(target,new Uint8Array(await response.arrayBuffer()));console.log(target);}
 }catch(error){console.error(error.message.replaceAll(token,'[redacted]'));process.exitCode=1;}

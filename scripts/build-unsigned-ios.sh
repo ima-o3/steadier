@@ -58,7 +58,9 @@ if [[ ! -d "$app_path" ]]; then
   echo 'Xcode did not produce Steadier.app for iphoneos.' >&2
   exit 1
 fi
-lipo -verify_arch arm64 "$app_path/Steadier"
+# Preserve the compiled app if a later packaging check needs investigation.
+ditto -c -k --keepParent "$app_path" build/sideload/Steadier-built-app.zip
+lipo "$app_path/Steadier" -verify_arch arm64
 python3 scripts/package-unsigned-ipa.py "$app_path" build/sideload/Steadier-unsigned.ipa
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
