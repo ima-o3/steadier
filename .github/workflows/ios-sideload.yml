@@ -1,0 +1,62 @@
+name: iPhone IPA for Windows sideloading
+
+# Manual only: weekly refreshes reuse the IPA and do not need new cloud builds.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: steadier-unsigned-iphone
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_NO_DOTENV: '1'
+      IOS_BUNDLE_IDENTIFIER: com.ima03.steadier
+      EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ vars.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
+      GOOGLE_IOS_URL_SCHEME: ${{ vars.GOOGLE_IOS_URL_SCHEME }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install the pinned package manager
+        run: npm install --global pnpm@11.25.0
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify application logic and native components
+        run: |
+          pnpm typecheck
+          pnpm test
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+      - name: Compile unsigned device app and package IPA
+        run: bash scripts/build-unsigned-ios.sh
+      - name: Upload IPA for signing on Windows
+        uses: actions/upload-artifact@v7
+        with:
+          name: Steadier-unsigned-iphone
+          path: |
+            build/sideload/Steadier-unsigned.ipa
+            build/sideload/Steadier-unsigned.ipa.sha256
+            build/sideload/build-info.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - name: Upload build logs if compilation fails
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Steadier-build-diagnostics
+          path: build/logs/
+          if-no-files-found: ignore
+          retention-days: 3

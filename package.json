@@ -1,0 +1,53 @@
+{
+  "name": "steadier",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run && jest --runInBand --forceExit",
+    "ios:development": "pnpm dlx eas-cli@latest build --platform ios --profile development",
+    "ios:preview": "pnpm dlx eas-cli@latest build --platform ios --profile preview",
+    "test:core": "vitest run",
+    "test:components": "jest --runInBand --forceExit",
+    "verify:ios": "expo export --platform ios --output-dir dist",
+    "format": "prettier --write app src docs *.json *.ts *.cjs"
+  },
+  "dependencies": {
+    "@babel/runtime": "^8.0.10",
+    "@js-temporal/polyfill": "^0.5.1",
+    "@react-native-google-signin/google-signin": "17.0.0",
+    "expo": "~58.0.22",
+    "expo-constants": "~58.0.14",
+    "expo-crypto": "~58.0.7",
+    "expo-dev-client": "~58.0.18",
+    "expo-file-system": "~58.0.13",
+    "expo-linking": "~58.0.15",
+    "expo-router": "~58.0.29",
+    "expo-secure-store": "~58.0.2",
+    "expo-sharing": "~58.0.21",
+    "expo-splash-screen": "~58.0.12",
+    "expo-sqlite": "~58.0.15",
+    "expo-status-bar": "~58.0.4",
+    "expo-system-ui": "~58.0.7",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "~5.10.1",
+    "react-native-screens": "~4.30.1"
+  },
+  "devDependencies": {
+    "@testing-library/react-native": "14.1.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^26.6.6",
+    "@types/react": "19.3.0",
+    "jest": "^30.5.2",
+    "jest-expo": "^58.0.13",
+    "prettier": "^3.9.10",
+    "react-test-renderer": "19.3.0",
+    "typescript": "~5.9.2",
+    "vitest": "5.0.5"
+  },
+  "packageManager": "pnpm@11.25.0"
+}

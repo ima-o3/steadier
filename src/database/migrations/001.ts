@@ -1,0 +1,28 @@
+export const migration1 = `
+CREATE TABLE users_local_settings(id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE goals(id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE milestones(id TEXT PRIMARY KEY, goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE actions(id TEXT PRIMARY KEY, goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE, milestone_id TEXT REFERENCES milestones(id) ON DELETE SET NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE action_variants(id TEXT PRIMARY KEY, action_id TEXT NOT NULL REFERENCES actions(id) ON DELETE CASCADE, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE action_dependencies(action_id TEXT REFERENCES actions(id) ON DELETE CASCADE, dependency_id TEXT REFERENCES actions(id) ON DELETE CASCADE, PRIMARY KEY(action_id,dependency_id), CHECK(action_id<>dependency_id));
+CREATE TABLE commitments(id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE daily_checkins(id TEXT PRIMARY KEY, local_date TEXT UNIQUE NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE habit_definitions(id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE habit_logs(id TEXT PRIMARY KEY, habit_id TEXT NOT NULL REFERENCES habit_definitions(id) ON DELETE CASCADE, local_date TEXT NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(habit_id,local_date));
+CREATE TABLE daily_plans(id TEXT PRIMARY KEY, local_date TEXT UNIQUE NOT NULL, algorithm_version TEXT NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE plan_items(id TEXT PRIMARY KEY, plan_id TEXT NOT NULL REFERENCES daily_plans(id) ON DELETE CASCADE, action_id TEXT REFERENCES actions(id) ON DELETE SET NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE plan_revisions(id TEXT PRIMARY KEY, plan_id TEXT NOT NULL REFERENCES daily_plans(id) ON DELETE CASCADE, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE calendar_accounts(id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE calendar_selections(id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE calendar_sync_state(id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE sleep_records(id TEXT PRIMARY KEY, local_date TEXT UNIQUE NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE screen_usage_records(id TEXT PRIMARY KEY, local_date TEXT UNIQUE NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE wellbeing_indicators(id TEXT PRIMARY KEY, local_date TEXT UNIQUE NOT NULL, algorithm_version TEXT NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE pattern_insights(id TEXT PRIMARY KEY, algorithm_version TEXT NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE goal_feasibility_reports(id TEXT PRIMARY KEY, algorithm_version TEXT NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE planning_preferences(id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE suggestion_feedback(id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX commitments_updated ON commitments(updated_at);
+CREATE INDEX actions_goal ON actions(goal_id);
+PRAGMA user_version=1;
+`;
