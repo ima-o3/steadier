@@ -29,10 +29,13 @@ PY
 
 printf 'export NODE_BINARY="%s"\n' "$NODE_BINARY" > ios/.xcode.env.local
 (cd ios && pod install) 2>&1 | tee build/logs/pods.log
-if ! grep -q 'SQLITE_HAS_CODEC' build/logs/pods.log; then
-  echo 'SQLCipher compilation flags were not found in CocoaPods output.' >&2
-  exit 1
-fi
+python3 - <<'PY'
+from pathlib import Path
+config = Path('ios/Pods/Target Support Files/ExpoSQLite/ExpoSQLite.release.xcconfig')
+if not config.is_file() or 'SQLITE_HAS_CODEC' not in config.read_text():
+    raise SystemExit('Refusing to build: ExpoSQLite Release compiler configuration does not enable SQLCipher.')
+print('Verified SQLCipher in the generated ExpoSQLite Release compiler configuration.')
+PY
 
 # Build for physical iPhones, not an iOS simulator. Signing is performed later
 # by Sideloadly on the user's PC. No Apple login/certificate is used here.
