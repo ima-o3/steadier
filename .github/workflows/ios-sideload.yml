@@ -20,6 +20,7 @@ jobs:
       EXPO_NO_TELEMETRY: '1'
       EXPO_NO_DOTENV: '1'
       IOS_BUNDLE_IDENTIFIER: com.ima03.steadier
+      SIMULATOR_SMOKE: '1'
       EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ vars.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
       GOOGLE_IOS_URL_SCHEME: ${{ vars.GOOGLE_IOS_URL_SCHEME }}
     steps:
@@ -39,7 +40,21 @@ jobs:
           pnpm typecheck
           pnpm test
           python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+      - name: Prepare native app and launch simulator
+        env:
+          BUILD_STAGE: prepare
+        run: bash scripts/build-unsigned-ios.sh
+      - name: Upload simulator startup evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Steadier-simulator-startup
+          path: build/simulator/
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Compile unsigned device app and package IPA
+        env:
+          BUILD_STAGE: device
         run: bash scripts/build-unsigned-ios.sh
       - name: Upload IPA for signing on Windows
         uses: actions/upload-artifact@v7

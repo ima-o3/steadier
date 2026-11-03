@@ -18,6 +18,7 @@ xcodebuild -version
 
 # Continuous Native Generation retains SQLCipher and SecureStore plugins.
 # CocoaPods runs separately so its failure log is preserved.
+if [[ "${BUILD_STAGE:-all}" != "device" ]]; then
 pnpm exec expo prebuild --platform ios --no-install 2>&1 | tee build/logs/prebuild.log
 python3 - <<'PY'
 import json
@@ -36,6 +37,14 @@ if not config.is_file() or 'SQLITE_HAS_CODEC' not in config.read_text():
     raise SystemExit('Refusing to build: ExpoSQLite Release compiler configuration does not enable SQLCipher.')
 print('Verified SQLCipher in the generated ExpoSQLite Release compiler configuration.')
 PY
+
+if [[ "${SIMULATOR_SMOKE:-0}" == "1" ]]; then
+  bash scripts/smoke-ios-simulator.sh
+fi
+fi
+if [[ "${BUILD_STAGE:-all}" == "prepare" ]]; then
+  exit 0
+fi
 
 # Build for physical iPhones, not an iOS simulator. Signing is performed later
 # by Sideloadly on the user's PC. No Apple login/certificate is used here.

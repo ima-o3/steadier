@@ -44,12 +44,23 @@ export function AppState({ children }: { children: React.ReactNode }) {
   const current = useRef(defaultState),
     queue = useRef(Promise.resolve());
   useEffect(() => {
+    let active = true;
+    const timeout = setTimeout(() => {
+      if (active) setError("Opening encrypted storage is taking longer than expected. Close Steadier and reopen it with your iPhone unlocked. Your data has not been deleted.");
+    }, 20000);
     openStore()
       .then((s) => {
+        if (!active) return;
+        clearTimeout(timeout);
+        setError("");
         current.current = s;
         setState(s);
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => {
+        clearTimeout(timeout);
+        if (active) setError(String(e));
+      });
+    return () => { active = false; clearTimeout(timeout); };
   }, []);
   const update = (fn: (s: State) => State) => {
     const next = queue.current.then(async () => {
@@ -68,23 +79,25 @@ export function AppState({ children }: { children: React.ReactNode }) {
   };
   if (error)
     return (
-      <View style={{ padding: 30, marginTop: 60 }}>
-        <Text accessibilityRole="header">
+      <View style={{ flex: 1, backgroundColor: "#F4F5EE", padding: 30, paddingTop: 80 }}>
+        <Text accessibilityRole="header" style={{ color: "#19382D", fontSize: 24 }}>
           Steadier could not open secure storage
         </Text>
-        <Text>{error}</Text>
-        <Text>
-          Use an EAS native development build with SQLCipher. Restart after
-          correcting the build configuration.
+        <Text selectable style={{ color: "#19382D", marginTop: 20 }}>{error}</Text>
+        <Text style={{ color: "#19382D", marginTop: 20 }}>
+          Please share the error above. Your saved data has not been deleted.
         </Text>
       </View>
     );
   if (!state)
     return (
+      <View style={{ flex: 1, backgroundColor: "#F4F5EE", alignItems: "center", justifyContent: "center", gap: 20 }}>
       <ActivityIndicator
+        color="#275F47"
         accessibilityLabel="Opening encrypted local data"
-        style={{ marginTop: 100 }}
       />
+      <Text style={{ color: "#19382D", fontSize: 18 }}>Opening Steadier…</Text>
+      </View>
     );
   return (
     <Context.Provider value={{ state, update }}>{children}</Context.Provider>
