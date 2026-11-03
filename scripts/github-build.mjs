@@ -5,7 +5,7 @@ import { mkdir,writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const [command='status',runId,jobId]=process.argv.slice(2);
-if(!['dispatch','status','jobs','logs','progress','download'].includes(command)||(command!=='dispatch'&&!/^\d+$/.test(runId||''))){
+if(!['dispatch','cancel','status','jobs','logs','progress','download'].includes(command)||(command!=='dispatch'&&!/^\d+$/.test(runId||''))){
   console.error('Usage: node scripts/github-build.mjs dispatch | status|jobs|logs|progress|download RUN_ID [JOB_ID or ARTIFACT_NAME]');
   process.exit(1);
 }
@@ -17,6 +17,11 @@ const headers={Authorization:`Bearer ${token}`,Accept:'application/vnd.github+js
 const api='https://api.github.com/repos/ima-o3/steadier';
 async function request(endpoint){const response=await fetch(api+endpoint,{headers});if(!response.ok)throw new Error(`GitHub request failed (${response.status}).`);return response;}
 try{
+  if(command==='cancel'){
+    const response=await fetch(api+`/actions/runs/${runId}/cancel`,{method:'POST',headers});
+    if(!response.ok)throw new Error(`GitHub cancellation failed (${response.status}).`);
+    console.log(`Canceled superseded build ${runId}.`);
+  }
   if(command==='dispatch'){
     const response=await fetch(api+'/actions/workflows/ios-sideload.yml/dispatches',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({ref:'main'})});
     if(!response.ok)throw new Error(`GitHub dispatch failed (${response.status}).`);

@@ -3,10 +3,11 @@
     "name": "Steadier",
     "slug": "steadier",
     "scheme": "steadier",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "buildNumber": "2",
       "supportsTablet": false,
       "bundleIdentifier": "com.yourname.steadier"
     },

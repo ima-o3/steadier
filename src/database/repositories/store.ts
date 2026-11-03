@@ -40,6 +40,23 @@ export const defaultState: State = {
   revisions: [],
 };
 let database: SQLite.SQLiteDatabase;
+let transactions: Promise<void> = Promise.resolve();
+// Expo's exclusive transaction helper opens a new, unkeyed connection. Keep
+// SQLCipher transactions on our keyed connection and serialize every write.
+function withStoreTransaction(task: (tx: SQLite.SQLiteDatabase) => Promise<void>) {
+  const operation = transactions.then(async () => {
+    await database.execAsync("BEGIN IMMEDIATE");
+    try {
+      await task(database);
+      await database.execAsync("COMMIT");
+    } catch (error) {
+      try { await database.execAsync("ROLLBACK"); } catch { /* Preserve the original error. */ }
+      throw error;
+    }
+  });
+  transactions = operation.catch(() => {});
+  return operation;
+}
 export async function openStore() {
   let key = await SecureStore.getItemAsync("steadier.database.key");
   if (!key) {
@@ -68,7 +85,7 @@ export async function openStore() {
   if ((version?.user_version || 0) > 1)
     throw new Error("This database needs a newer version of Steadier.");
   if (!version?.user_version)
-    await database.withExclusiveTransactionAsync(async (tx) => {
+    await withStoreTransaction(async (tx) => {
       await tx.execAsync(migration1);
     });
   return readState();
@@ -98,7 +115,7 @@ async function readState(): Promise<State> {
   };
 }
 export async function saveState(s: State) {
-  await database.withExclusiveTransactionAsync(async (tx) => {
+  await withStoreTransaction(async (tx) => {
     const now = new Date().toISOString();
     const insert = async (
       table: string,

@@ -32,17 +32,8 @@ vi.mock("expo-sqlite", async () => {
         getAllAsync: async (sql: string) => db.prepare(sql).all(),
         runAsync: async (sql: string, ...args: (string | null)[]) =>
           db.prepare(sql).run(...args),
-        withExclusiveTransactionAsync: async (
-          fn: (tx: unknown) => Promise<void>,
-        ) => {
-          db.exec("BEGIN");
-          try {
-            await fn(adapter);
-            db.exec("COMMIT");
-          } catch (e) {
-            db.exec("ROLLBACK");
-            throw e;
-          }
+        withExclusiveTransactionAsync: async () => {
+          throw new Error("A fresh transaction connection has no SQLCipher key");
         },
       };
       return adapter;
@@ -164,4 +155,13 @@ it("deleting observations clears derived and manual measurement tables", async (
 it("refuses a build without SQLCipher instead of falling back to plaintext", async () => {
   memory.cipher = false;
   await expect(openStore()).rejects.toThrow("SQLCipher is unavailable");
+});
+it("serializes concurrent saves on the keyed connection and recovers after rollback", async () => {
+  await openStore();
+  const outcomes = await Promise.allSettled([
+    saveState({ ...defaultState, actions: [action] }),
+    saveState({ ...defaultState, goals: [goal] }),
+  ]);
+  expect(outcomes.map(result => result.status)).toEqual(["rejected", "fulfilled"]);
+  expect((await openStore()).goals).toEqual([goal]);
 });
