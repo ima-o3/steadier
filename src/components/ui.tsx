@@ -28,9 +28,9 @@ export function useTheme() {
         border: "#625675",
       }
     : {
-        bg: palette.lavender,
+        bg: "#FAF5E7",
         card: "#FFFFFF",
-        text: palette.ink,
+        text: "#262523",
         muted: "#6B627E",
         accent: palette.accent,
         button: "#F0ECFC",
@@ -41,9 +41,11 @@ export function useTheme() {
 export function Page({
   children,
   title,
+  scrollRef,
 }: {
   children: React.ReactNode;
   title?: string;
+  scrollRef?: React.RefObject<React.ComponentRef<typeof ScrollView> | null>;
 }) {
   const t = useTheme();
   return (
@@ -52,6 +54,8 @@ export function Page({
       style={{ flex: 1, backgroundColor: t.bg }}
     >
       <ScrollView
+        ref={scrollRef}
+        automaticallyAdjustKeyboardInsets
         contentContainerStyle={{ padding: 20, paddingBottom: 48, gap: 16 }}
         keyboardShouldPersistTaps="handled"
       >

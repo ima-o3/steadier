@@ -54,9 +54,7 @@ test("tapping mood and energy updates today's wellbeing immediately and preserve
   ).toBeTruthy();
   expect(latest.checkins).toHaveLength(1);
   expect(latest.checkins[0]).toMatchObject({ energy: 4, mood: 8 });
-  expect(
-    screen.getByText("Saved · your wellbeing calendar is up to date."),
-  ).toBeTruthy();
+  expect(screen.getByText("Saved")).toBeTruthy();
 });
 
 test("reset clears pinned unfinished suggestions while preserving completed work and appointments", async () => {

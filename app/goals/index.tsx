@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert } from "react-native";
+import { Alert, Modal } from "react-native";
 import * as Crypto from "expo-crypto";
 import { useStore } from "../../src/components/AppState";
 import {
@@ -12,12 +12,17 @@ import {
   Row,
   message,
 } from "../../src/components/ui";
+import { removeGoal } from "../../src/features/goals/removeGoal";
 import { Goal } from "../../src/types";
 import { assessGoals } from "../../src/engines/goalFeasibility";
 import { localDate } from "../../src/utils/time";
 import { validateDependencies } from "../../src/features/goals/dependencies";
 export default function Goals() {
   const { state: s, update } = useStore();
+  const [formVisible, setFormVisible] = useState(false);
+  const [capacityVisible, setCapacityVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [goalDetails, setGoalDetails] = useState(false);
   const [editing, setEditing] = useState(""),
     [name, setName] = useState(""),
     [description, setDescription] = useState(""),
@@ -49,7 +54,44 @@ export default function Goals() {
   );
   const commit = (fn: Parameters<typeof update>[0]) =>
     void update(fn).catch(() => {});
+  function newGoal() {
+    setGoalDetails(false);
+    setEditing("");
+    setName("");
+    setDescription("");
+    setCategory("Personal");
+    setImportance("3");
+    setPriority("1");
+    setDeadline("");
+    setMin("");
+    setMax("");
+    setFrequency("3");
+    setMinimum("5");
+    setFormVisible(true);
+  }
+  function remove(g: Goal) {
+    Alert.alert(
+      `Remove ${g.name}?`,
+      "This removes the goal, its milestones, actions and unfinished plan suggestions. Completed plan history and check-ins stay.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove goal",
+          style: "destructive",
+          onPress: () => {
+            void update((old) => removeGoal(old, g.id))
+              .then(() => {
+                if (goalId === g.id) setGoalId("");
+              })
+              .catch((e) => Alert.alert("Could not remove goal", message(e)));
+          },
+        },
+      ],
+    );
+  }
   function edit(g: Goal) {
+    setGoalDetails(false);
+    setFormVisible(true);
     setEditing(g.id);
     setName(g.name);
     setDescription(g.description);
@@ -62,7 +104,9 @@ export default function Goals() {
     setFrequency(String(g.frequency));
     setMinimum(String(g.minimumMinutes));
   }
-  function save() {
+  async function save() {
+    if (saving) return;
+    setSaving(true);
     try {
       if (!name.trim()) throw new Error("Give the goal a name.");
       if (
@@ -105,44 +149,117 @@ export default function Goals() {
         minimumMinutes: Number(minimum),
         status: s.goals.find((g) => g.id === id)?.status || "active",
       };
-      commit((old) => ({
+      await update((old) => ({
         ...old,
         goals: [...old.goals.filter((g) => g.id !== id), g],
       }));
+      setFormVisible(false);
       setName("");
       setEditing("");
       setGoalId(id);
     } catch (e) {
       Alert.alert("Goal", message(e));
+    } finally {
+      setSaving(false);
     }
   }
   return (
     <Page title="Goals">
-      <Card>
-        <Heading>{report.status}</Heading>
-        <Copy>
-          Required: {(report.required.low / 60).toFixed(1)}–
-          {(report.required.high / 60).toFixed(1)} h/week
-        </Copy>
-        <Copy>
-          Sustainable: {(report.capacity.low / 60).toFixed(1)}–
-          {(report.capacity.high / 60).toFixed(1)} h/week
-        </Copy>
-        <Copy small>{report.assumptions}</Copy>
-        {[...report.missing, ...report.bottlenecks, ...report.suggestions].map(
-          (text, i) => (
-            <Copy key={i} small>
-              {text}
-            </Copy>
-          ),
-        )}
-        <Copy small>
-          Workload/capacity ratio: {report.ratio?.toFixed(2) ?? "unknown"} ·
-          peak projected weekly overload:{" "}
-          {(report.peakWeeklyOverload / 60).toFixed(1)} h · scheduling margin:{" "}
-          {(report.buffer / 60).toFixed(1)} h
-        </Copy>
-      </Card>
+      <Button title="Add goal" onPress={newGoal} />
+      {s.goals.length === 0 && (
+        <Card>
+          <Heading>Make room for something that matters</Heading>
+          <Copy>Add your first goal. You can keep it small.</Copy>
+        </Card>
+      )}
+      <Modal
+        visible={formVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          if (!saving) setFormVisible(false);
+        }}
+      >
+        <Page>
+          <Card>
+            <Heading>{editing ? "Edit goal" : "New goal"}</Heading>
+            <Field label="Name" value={name} onChangeText={setName} />
+            <Field
+              label="Description"
+              value={description}
+              onChangeText={setDescription}
+            />
+            <Button
+              title={
+                goalDetails
+                  ? "Hide planning details"
+                  : "Planning details · optional"
+              }
+              onPress={() => setGoalDetails(!goalDetails)}
+            />
+            {goalDetails && (
+              <>
+                <Field
+                  label="Category"
+                  value={category}
+                  onChangeText={setCategory}
+                />
+                <Field
+                  label="Personal importance 1–5"
+                  value={importance}
+                  onChangeText={setImportance}
+                  numeric
+                />
+                <Field
+                  label="Priority · 1 is highest"
+                  value={priority}
+                  onChangeText={setPriority}
+                  numeric
+                />
+                <Field
+                  label="Desired deadline YYYY-MM-DD · optional"
+                  value={deadline}
+                  onChangeText={setDeadline}
+                />
+                <Field
+                  label="Remaining hours · lower estimate"
+                  value={min}
+                  onChangeText={setMin}
+                  numeric
+                />
+                <Field
+                  label="Remaining hours · upper estimate"
+                  value={max}
+                  onChangeText={setMax}
+                  numeric
+                />
+                <Field
+                  label="Days of work per week"
+                  value={frequency}
+                  onChangeText={setFrequency}
+                  numeric
+                />
+                <Field
+                  label="Minimum viable progress · minutes"
+                  value={minimum}
+                  onChangeText={setMinimum}
+                  numeric
+                />
+              </>
+            )}
+            <Button
+              title={saving ? "Saving…" : "Save goal"}
+              disabled={saving}
+              onPress={() => void save()}
+            />
+            <Button
+              title="Cancel"
+              disabled={saving}
+              onPress={() => setFormVisible(false)}
+            />
+          </Card>
+        </Page>
+      </Modal>
       {s.goals.map((g) => (
         <Card key={g.id}>
           <Heading>{g.name}</Heading>
@@ -167,7 +284,8 @@ export default function Goals() {
             completion does not silently change it.
           </Copy>
           <Row>
-            <Button title="Edit estimates" onPress={() => edit(g)} />
+            <Button title="Edit goal" onPress={() => edit(g)} />
+            <Button title="Remove goal" onPress={() => remove(g)} />
             <Button
               title="Add work"
               onPress={() => {
@@ -241,58 +359,6 @@ export default function Goals() {
             ))}
         </Card>
       ))}
-      <Card>
-        <Heading>{editing ? "Edit goal" : "New goal"}</Heading>
-        <Field label="Name" value={name} onChangeText={setName} />
-        <Field
-          label="Description"
-          value={description}
-          onChangeText={setDescription}
-        />
-        <Field label="Category" value={category} onChangeText={setCategory} />
-        <Field
-          label="Personal importance 1–5"
-          value={importance}
-          onChangeText={setImportance}
-          numeric
-        />
-        <Field
-          label="Priority · 1 is highest"
-          value={priority}
-          onChangeText={setPriority}
-          numeric
-        />
-        <Field
-          label="Desired deadline YYYY-MM-DD · optional"
-          value={deadline}
-          onChangeText={setDeadline}
-        />
-        <Field
-          label="Remaining hours · lower estimate"
-          value={min}
-          onChangeText={setMin}
-          numeric
-        />
-        <Field
-          label="Remaining hours · upper estimate"
-          value={max}
-          onChangeText={setMax}
-          numeric
-        />
-        <Field
-          label="Days of work per week"
-          value={frequency}
-          onChangeText={setFrequency}
-          numeric
-        />
-        <Field
-          label="Minimum viable progress · minutes"
-          value={minimum}
-          onChangeText={setMinimum}
-          numeric
-        />
-        <Button title="Save goal" onPress={save} />
-      </Card>
       {goalId && (
         <Card>
           <Heading>
@@ -428,6 +494,43 @@ export default function Goals() {
             }}
           />
         </Card>
+      )}
+      <Button
+        title={
+          capacityVisible ? "Hide capacity details" : "View capacity details"
+        }
+        onPress={() => setCapacityVisible(!capacityVisible)}
+      />
+      {capacityVisible && (
+        <>
+          <Card>
+            <Heading>{report.status}</Heading>
+            <Copy>
+              Required: {(report.required.low / 60).toFixed(1)}–
+              {(report.required.high / 60).toFixed(1)} h/week
+            </Copy>
+            <Copy>
+              Sustainable: {(report.capacity.low / 60).toFixed(1)}–
+              {(report.capacity.high / 60).toFixed(1)} h/week
+            </Copy>
+            <Copy small>{report.assumptions}</Copy>
+            {[
+              ...report.missing,
+              ...report.bottlenecks,
+              ...report.suggestions,
+            ].map((text, i) => (
+              <Copy key={i} small>
+                {text}
+              </Copy>
+            ))}
+            <Copy small>
+              Workload/capacity ratio: {report.ratio?.toFixed(2) ?? "unknown"} ·
+              peak projected weekly overload:{" "}
+              {(report.peakWeeklyOverload / 60).toFixed(1)} h · scheduling
+              margin: {(report.buffer / 60).toFixed(1)} h
+            </Copy>
+          </Card>
+        </>
       )}
     </Page>
   );

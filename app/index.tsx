@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, ScrollView, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import { TodayOverview } from "../src/components/TodayOverview";
 import { Heatmap } from "../src/components/Heatmap";
@@ -18,7 +18,6 @@ import {
 } from "../src/components/ui";
 import { Mode, PlanItem } from "../src/types";
 import { planDay, recommendMode } from "../src/engines/dailyPlanner";
-import { indicator } from "../src/engines/patternDetector";
 import {
   clock,
   localDate,
@@ -69,6 +68,8 @@ export default function Today() {
     [editDuration, setEditDuration] = useState("");
   const [checkinStatus, setCheckinStatus] = useState("");
   const checkinRequest = useRef(0);
+  const pageRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const checkinY = useRef(0);
   const items = s.plans[date] || [];
   const feasibility = assessGoals(
     s.goals,
@@ -77,17 +78,6 @@ export default function Today() {
     s.preferences,
     date,
   );
-  const recent = s.checkins.filter(
-    (c) => c.date >= nextDate(date, -6) && c.date <= date,
-  );
-  const average = (key: "mood" | "energy") => {
-    const values = recent
-      .map((c) => c[key])
-      .filter((v): v is number => v !== undefined);
-    return values.length
-      ? `${(values.reduce((n, v) => n + v, 0) / values.length).toFixed(1)} (${values.length} recorded days)`
-      : "no observations";
-  };
   const commit = (fn: Parameters<typeof update>[0]) =>
     void update(fn).catch(() => {});
   async function saveRating(field: "energy" | "mood", score: number) {
@@ -105,8 +95,7 @@ export default function Today() {
           ],
         };
       });
-      if (request === checkinRequest.current)
-        setCheckinStatus("Saved · your wellbeing calendar is up to date.");
+      if (request === checkinRequest.current) setCheckinStatus("Saved");
     } catch {
       if (request === checkinRequest.current)
         setCheckinStatus("Could not save. Please tap your score again.");
@@ -309,8 +298,12 @@ export default function Today() {
     }
   };
   return (
-    <Page title="Today">
-      <TodayOverview />
+    <Page scrollRef={pageRef}>
+      <TodayOverview
+        onCheckin={() =>
+          pageRef.current?.scrollTo({ y: checkinY.current, animated: true })
+        }
+      />
       {s.demo && (
         <Copy small>
           DEMO DATA · Examples are stored locally. Clear demo data in Settings
@@ -339,72 +332,71 @@ export default function Today() {
           />
         </Card>
       )}
-      <Card>
-        <Heading>How are you today?</Heading>
-        <Copy small>
-          Last 7 days · mood {average("mood")} · energy {average("energy")}.
-          Recorded observations only.
-        </Copy>
-        <Copy small>
-          {check
-            ? `Recorded: mood ${check.mood ?? "—"}, energy ${check.energy ?? "—"}. ${indicator(check)?.explanation || ""}`
-            : "No check-in yet. Skipping is okay."}
-        </Copy>
-        {s.preferences.tracking ? (
-          <>
-            <Copy small>
-              Tap a number to save immediately. 1 is very low; 10 is very high.
-              Either score is optional.
-            </Copy>
-            <Rating
-              label="Energy"
-              value={check?.energy}
-              onSelect={(score) => void saveRating("energy", score)}
-            />
-            <Rating
-              label="Mood"
-              value={check?.mood}
-              onSelect={(score) => void saveRating("mood", score)}
-            />
-            {!!checkinStatus && <Copy small>{checkinStatus}</Copy>}
-            <Button
-              title={details ? "Fewer fields" : "Sleep, screen time and notes"}
-              onPress={() => setDetails(!details)}
-            />
-            {details && (
-              <>
-                <Field
-                  label="Sleep hours · optional"
-                  value={sleep}
-                  onChangeText={setSleep}
-                  numeric
-                />
-                <Field
-                  label="Sleep quality 1–10 · optional"
-                  value={quality}
-                  onChangeText={setQuality}
-                  numeric
-                />
-                <Field
-                  label="Screen minutes · optional"
-                  value={screen}
-                  onChangeText={setScreen}
-                  numeric
-                />
-                <Field
-                  label="Symptoms or annotation · optional"
-                  value={notes}
-                  onChangeText={setNotes}
-                  multiline
-                />
-                <Button title="Save these details" onPress={() => void run()} />
-              </>
-            )}
-          </>
-        ) : (
-          <Copy>Tracking is disabled in Settings.</Copy>
-        )}
-      </Card>
+      <View
+        onLayout={(event) => {
+          checkinY.current = event.nativeEvent.layout.y;
+        }}
+      >
+        <Card>
+          <Heading>How are you today?</Heading>
+          {s.preferences.tracking ? (
+            <>
+              <Copy small>1 = low · 10 = high · saves automatically</Copy>
+              <Rating
+                label="Energy"
+                value={check?.energy}
+                onSelect={(score) => void saveRating("energy", score)}
+              />
+              <Rating
+                label="Mood"
+                value={check?.mood}
+                onSelect={(score) => void saveRating("mood", score)}
+              />
+              {!!checkinStatus && <Copy small>{checkinStatus}</Copy>}
+              <Button
+                title={
+                  details ? "Fewer fields" : "Sleep, screen time and notes"
+                }
+                onPress={() => setDetails(!details)}
+              />
+              {details && (
+                <>
+                  <Field
+                    label="Sleep hours · optional"
+                    value={sleep}
+                    onChangeText={setSleep}
+                    numeric
+                  />
+                  <Field
+                    label="Sleep quality 1–10 · optional"
+                    value={quality}
+                    onChangeText={setQuality}
+                    numeric
+                  />
+                  <Field
+                    label="Screen minutes · optional"
+                    value={screen}
+                    onChangeText={setScreen}
+                    numeric
+                  />
+                  <Field
+                    label="Symptoms or annotation · optional"
+                    value={notes}
+                    onChangeText={setNotes}
+                    multiline
+                  />
+                  <Button
+                    title="Save these details"
+                    onPress={() => void run()}
+                  />
+                </>
+              )}
+            </>
+          ) : (
+            <Copy>Tracking is disabled in Settings.</Copy>
+          )}
+        </Card>
+      </View>
       <Heatmap />
       <Card>
         <Heading>Plan your day</Heading>

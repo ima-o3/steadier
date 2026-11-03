@@ -12,11 +12,13 @@ function Navigation() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: t.accent,
-        tabBarInactiveTintColor: t.muted,
+        tabBarActiveTintColor: "#F5B9DB",
+        tabBarInactiveTintColor: "#C9C5CB",
         tabBarStyle: {
-          backgroundColor: t.card,
-          borderTopColor: t.border,
+          backgroundColor: "#242424",
+          borderTopColor: "#242424",
+          borderTopLeftRadius: 26,
+          borderTopRightRadius: 26,
           paddingTop: 8,
         },
         tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },

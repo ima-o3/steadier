@@ -33,7 +33,9 @@ vi.mock("expo-sqlite", async () => {
         runAsync: async (sql: string, ...args: (string | null)[]) =>
           db.prepare(sql).run(...args),
         withExclusiveTransactionAsync: async () => {
-          throw new Error("A fresh transaction connection has no SQLCipher key");
+          throw new Error(
+            "A fresh transaction connection has no SQLCipher key",
+          );
         },
       };
       return adapter;
@@ -162,6 +164,64 @@ it("serializes concurrent saves on the keyed connection and recovers after rollb
     saveState({ ...defaultState, actions: [action] }),
     saveState({ ...defaultState, goals: [goal] }),
   ]);
-  expect(outcomes.map(result => result.status)).toEqual(["rejected", "fulfilled"]);
+  expect(outcomes.map((result) => result.status)).toEqual([
+    "rejected",
+    "fulfilled",
+  ]);
   expect((await openStore()).goals).toEqual([goal]);
+});
+
+it("removing a goal cleans references and preserves completed history across persistence", async () => {
+  const { removeGoal } = await import("../features/goals/removeGoal");
+  await openStore();
+  const base = {
+    id: "pending",
+    actionId: action.id,
+    title: "Work",
+    start: `${date}T09:00:00Z`,
+    end: `${date}T10:00:00Z`,
+    kind: "task" as const,
+    effort: 3,
+    completed: false,
+    locked: true,
+    variant: 0,
+  };
+  const state = {
+    ...defaultState,
+    goals: [goal, { ...goal, id: "other" }],
+    actions: [
+      action,
+      {
+        ...action,
+        id: "dependent",
+        goalId: "other",
+        dependencies: [action.id],
+      },
+    ],
+    milestones: [
+      { id: "m", goalId: goal.id, name: "Milestone", completed: false },
+    ],
+    checkins: [{ id: "c", date, mood: 6 }],
+    plans: { [date]: [base, { ...base, id: "done", completed: true }] },
+    excludedActions: { [date]: [action.id] },
+    revisions: [
+      { date, at: `${date}T10:00:00Z`, reason: "Original", items: [base] },
+    ],
+  };
+  await saveState(state);
+  const removed = removeGoal(state, goal.id);
+  await saveState(removed);
+  const restored = await openStore();
+  expect(restored.goals.map((g) => g.id)).toEqual(["other"]);
+  expect(restored.actions[0]!.dependencies).toEqual([]);
+  expect(restored.milestones).toEqual([]);
+  expect(restored.plans[date]).toHaveLength(1);
+  expect(restored.plans[date]![0]!).toMatchObject({
+    id: "done",
+    completed: true,
+  });
+  expect(restored.plans[date]![0]!.actionId).toBeUndefined();
+  expect(restored.revisions[0]!.items[0]!.actionId).toBeUndefined();
+  expect(restored.checkins).toEqual(state.checkins);
+  expect(restored.excludedActions[date]).toEqual([]);
 });

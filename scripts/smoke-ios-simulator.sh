@@ -26,6 +26,9 @@ xcrun simctl install "$device_id" build/SimulatorDerivedData/Build/Products/Rele
 xcrun simctl launch "$device_id" "${IOS_BUNDLE_IDENTIFIER:-com.ima03.steadier}"
 sleep 25
 xcrun simctl io "$device_id" screenshot build/simulator/startup.png
+xcrun simctl openurl "$device_id" 'steadier://goals'
+sleep 3
+xcrun simctl io "$device_id" screenshot build/simulator/goals.png
 xcrun simctl spawn "$device_id" log show --last 3m --style compact \
   --predicate 'process == "Steadier"' > build/simulator/runtime.log 2>&1
 echo 'Simulator startup screenshot and runtime log captured.'
