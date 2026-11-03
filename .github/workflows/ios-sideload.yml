@@ -5,11 +5,11 @@ on:
   workflow_dispatch:
     inputs:
       simulator_only:
-        description: 'Check startup without rebuilding the device IPA'
+        description: "Check startup without rebuilding the device IPA"
         type: boolean
         default: false
       skip_simulator:
-        description: 'Device-only retry after simulator validation of unchanged app code'
+        description: "Device-only retry after simulator validation of unchanged app code"
         type: boolean
         default: false
 
@@ -22,16 +22,21 @@ concurrency:
 
 jobs:
   build:
+    name: ${{ matrix.target }} build
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(inputs.simulator_only && '["simulator"]' || inputs.skip_simulator && '["device"]' || '["simulator","device"]') }}
     # Use the standard Intel pool while ARM runners have acquisition failures.
     # Xcode still cross-compiles the device IPA for arm64.
     runs-on: macos-26-intel
     timeout-minutes: 120
     env:
-      CI: '1'
-      EXPO_NO_TELEMETRY: '1'
-      EXPO_NO_DOTENV: '1'
+      CI: "1"
+      EXPO_NO_TELEMETRY: "1"
+      EXPO_NO_DOTENV: "1"
       IOS_BUNDLE_IDENTIFIER: com.ima03.steadier
-      SIMULATOR_SMOKE: ${{ inputs.skip_simulator && '0' || '1' }}
+      SIMULATOR_SMOKE: ${{ matrix.target == 'simulator' && '1' || '0' }}
       EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ vars.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
       GOOGLE_IOS_URL_SCHEME: ${{ vars.GOOGLE_IOS_URL_SCHEME }}
     steps:
@@ -45,7 +50,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: "24"
           package-manager-cache: false
       - name: Install the pinned package manager
         run: npm install --global pnpm@11.25.0
@@ -61,7 +66,7 @@ jobs:
           BUILD_STAGE: prepare
         run: bash scripts/build-unsigned-ios.sh
       - name: Upload simulator startup evidence
-        if: ${{ always() && !inputs.skip_simulator }}
+        if: ${{ always() && matrix.target == 'simulator' }}
         uses: actions/upload-artifact@v7
         with:
           name: Steadier-simulator-startup
@@ -69,13 +74,13 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
       - name: Compile unsigned device app and package IPA
-        if: ${{ !inputs.simulator_only }}
+        if: ${{ matrix.target == 'device' }}
         timeout-minutes: 90
         env:
           BUILD_STAGE: device
         run: bash scripts/build-unsigned-ios.sh
       - name: Upload IPA for signing on Windows
-        if: ${{ !inputs.simulator_only }}
+        if: ${{ matrix.target == 'device' }}
         uses: actions/upload-artifact@v7
         with:
           name: Steadier-unsigned-iphone
@@ -90,7 +95,7 @@ jobs:
         if: ${{ failure() || cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: Steadier-build-diagnostics
+          name: Steadier-build-diagnostics-${{ matrix.target }}
           path: |
             build/logs/
             build/sideload/Steadier-built-app.zip
