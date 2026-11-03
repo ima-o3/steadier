@@ -55,6 +55,7 @@ def package_app(app: Path, output: Path) -> dict:
     result = {
         'bundleIdentifier': bundle_id,
         'version': info.get('CFBundleShortVersionString'),
+        'buildNumber': info.get('CFBundleVersion'),
         'minimumIOSVersion': info.get('MinimumOSVersion'),
         'platform': 'iPhoneOS',
         'configuration': 'Release',

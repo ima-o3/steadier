@@ -65,6 +65,7 @@ test("visible goal controls add, edit and remove a goal with confirmation", asyn
   expect(latest.goals.find((g) => g.id === "new-goal")?.category).toBe(
     "Personal",
   );
+  await fireEvent.press(screen.getByRole("button", { name: "Manage details for Updated portfolio" }));
   await fireEvent.press(
     screen.getByLabelText("Show delete for Updated portfolio"),
   );
@@ -93,18 +94,22 @@ test("failed saves keep the goal form and entered name available", async () => {
 
 test("goal status buttons move goals between visible sections and restore them", async () => {
   await render(<Harness />);
+  await fireEvent.press(screen.getByRole("button", { name: "Manage details for Portfolio" }));
   await fireEvent.press(screen.getByRole("button", { name: "Complete goal" }));
   expect(screen.queryByText("Portfolio")).toBeNull();
   await fireEvent.press(screen.getByRole("button", { name: "Completed (1)" }));
   expect(screen.getByText("Portfolio")).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Manage details for Portfolio" }));
   await fireEvent.press(screen.getByRole("button", { name: "Archive goal" }));
   expect(screen.queryByText("Portfolio")).toBeNull();
   await fireEvent.press(screen.getByRole("button", { name: "Archive (1)" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Manage details for Portfolio" }));
   await fireEvent.press(
     screen.getByRole("button", { name: "Restore to active" }),
   );
   await fireEvent.press(screen.getByRole("button", { name: "Active (1)" }));
   expect(screen.getByText("Portfolio")).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Manage details for Portfolio" }));
   await fireEvent.press(screen.getByRole("button", { name: "Pause goal" }));
   expect(screen.getByText("Portfolio")).toBeTruthy();
   expect(latest.goals[0]?.status).toBe("paused");
@@ -135,6 +140,7 @@ test("Add work opens immediately and saves an action under the chosen goal", asy
 test("milestones can be edited and moved without moving their actions, then deleted", async () => {
   const alert = jest.spyOn(Alert, "alert");
   await render(<Harness extra />);
+  await fireEvent.press(screen.getByRole("button", { name: "Manage details for Portfolio" }));
   await fireEvent.press(
     screen.getByRole("button", { name: "Edit milestone: First draft" }),
   );
@@ -150,6 +156,7 @@ test("milestones can be edited and moved without moving their actions, then dele
   });
   expect(latest.actions[0]?.goalId).toBe(goal.id);
   expect(latest.actions[0]?.milestoneId).toBeUndefined();
+  await fireEvent.press(screen.getByRole("button", { name: "Manage details for Health" }));
   await fireEvent.press(
     screen.getByRole("button", { name: "Delete milestone: Final draft" }),
   );
@@ -166,6 +173,7 @@ test("milestones can be edited and moved without moving their actions, then dele
 test("action editing can change its goal and deletion requires confirmation", async () => {
   const alert = jest.spyOn(Alert, "alert");
   await render(<Harness extra />);
+  await fireEvent.press(screen.getByRole("button", { name: "Manage details for Portfolio" }));
   await fireEvent.press(
     screen.getByRole("button", { name: "Edit action: Build prototype" }),
   );
@@ -196,6 +204,7 @@ test("action editing can change its goal and deletion requires confirmation", as
 test("failed work saves retain the selected goal and draft", async () => {
   jest.spyOn(Alert, "alert");
   await render(<Harness fail extra />);
+  await fireEvent.press(screen.getByRole("button", { name: "Manage details for Portfolio" }));
   await fireEvent.press(
     screen.getAllByRole("button", { name: "Add milestone" })[0]!,
   );
@@ -217,6 +226,7 @@ test("failed work saves retain the selected goal and draft", async () => {
 
 test("new milestones use the selected goal and keep existing actions unchanged", async () => {
   await render(<Harness extra />);
+  await fireEvent.press(screen.getByRole("button", { name: "Manage details for Portfolio" }));
   await fireEvent.press(
     screen.getAllByRole("button", { name: "Add milestone" })[0]!,
   );
@@ -231,4 +241,17 @@ test("new milestones use the selected goal and keep existing actions unchanged",
   ).toMatchObject({ goalId: "other", completed: false });
   expect(latest.actions[0]?.milestoneId).toBe("m");
   expect(screen.queryByLabelText("Milestone name")).toBeNull();
+});
+
+
+test("goals dashboard shows a capacity overview and starts with details collapsed", async () => {
+  await render(<Harness />);
+  expect(screen.getByText("Your goals")).toBeTruthy();
+  expect(screen.getByText("YOUR CAPACITY THIS WEEK")).toBeTruthy();
+  expect(screen.getByText("0 of 1 actions")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Complete goal" })).toBeNull();
+  await fireEvent.press(screen.getByRole("button", { name: "Manage details for Portfolio" }));
+  expect(screen.getByRole("button", { name: "Complete goal" })).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Hide details for Portfolio" }));
+  expect(screen.queryByRole("button", { name: "Complete goal" })).toBeNull();
 });

@@ -19,7 +19,7 @@ class PackageTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.app = self.root / 'Steadier.app'
         self.app.mkdir()
-        self.info = {'CFBundleSupportedPlatforms': ['iPhoneOS'], 'CFBundleExecutable': 'Steadier', 'CFBundleIdentifier': 'com.ima03.steadier'}
+        self.info = {'CFBundleSupportedPlatforms': ['iPhoneOS'], 'CFBundleExecutable': 'Steadier', 'CFBundleIdentifier': 'com.ima03.steadier', 'CFBundleShortVersionString': '0.1.7', 'CFBundleVersion': '8'}
         self.write_info()
         (self.app / 'Steadier').write_bytes(b'test-fixture-not-a-real-executable')
         (self.app / 'main.jsbundle').write_bytes(b'fixture')
@@ -36,6 +36,8 @@ class PackageTests(unittest.TestCase):
         with zipfile.ZipFile(self.output) as archive:
             self.assertIn('Payload/Steadier.app/main.jsbundle', archive.namelist())
             self.assertIn('Payload/Steadier.app/Steadier', archive.namelist())
+        self.assertEqual(result['version'], '0.1.7')
+        self.assertEqual(result['buildNumber'], '8')
         self.assertFalse(result['signed'])
         self.assertEqual(len(result['sha256']), 64)
         self.assertEqual(json.loads((self.output.parent / 'build-info.json').read_text())['platform'], 'iPhoneOS')
