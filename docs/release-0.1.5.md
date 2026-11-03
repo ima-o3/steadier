@@ -9,3 +9,5 @@ The central number uses the existing mean of recorded mood and energy and expose
 Includes the previous iteration's visible Add/Edit/Remove goal controls, optional planning-detail fields, persistence-safe deletion, failed-save recovery, and compact check-in wording.
 
 Validation: TypeScript passed; 63 core and 11 component tests passed. Native screenshots and the IPA still require the replacement GitHub build to complete. Monitoring is intentionally not continuous, following the user's request to conserve Codex credits.
+
+Run 41679151135 failed before executing any steps: GitHub reported that no hosted runner acquired the job after multiple attempts, with macOS ARM capacity warnings. The workflow now uses the separate standard `macos-26-intel` pool. The simulator uses its host architecture; the device build still targets iPhoneOS and verifies arm64 before packaging. Native validation remains pending.

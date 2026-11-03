@@ -18,7 +18,9 @@ concurrency:
 
 jobs:
   build:
-    runs-on: macos-26
+    # Use the standard Intel pool while ARM runners have acquisition failures.
+    # Xcode still cross-compiles the device IPA for arm64.
+    runs-on: macos-26-intel
     timeout-minutes: 60
     env:
       CI: '1'
