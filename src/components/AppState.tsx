@@ -46,7 +46,10 @@ export function AppState({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
     const timeout = setTimeout(() => {
-      if (active) setError("Opening encrypted storage is taking longer than expected. Close Steadier and reopen it with your iPhone unlocked. Your data has not been deleted.");
+      if (active)
+        setError(
+          "Opening encrypted storage is taking longer than expected. Close Steadier and reopen it with your iPhone unlocked. Your data has not been deleted.",
+        );
     }, 20000);
     openStore()
       .then((s) => {
@@ -60,7 +63,10 @@ export function AppState({ children }: { children: React.ReactNode }) {
         clearTimeout(timeout);
         if (active) setError(String(e));
       });
-    return () => { active = false; clearTimeout(timeout); };
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+    };
   }, []);
   const update = (fn: (s: State) => State) => {
     const next = queue.current.then(async () => {
@@ -79,24 +85,46 @@ export function AppState({ children }: { children: React.ReactNode }) {
   };
   if (error)
     return (
-      <View style={{ flex: 1, backgroundColor: "#F4F5EE", padding: 30, paddingTop: 80 }}>
-        <Text accessibilityRole="header" style={{ color: "#19382D", fontSize: 24 }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#F7F5F2",
+          padding: 30,
+          paddingTop: 80,
+        }}
+      >
+        <Text
+          accessibilityRole="header"
+          style={{ color: "#34302D", fontSize: 24 }}
+        >
           Steadier could not open secure storage
         </Text>
-        <Text selectable style={{ color: "#19382D", marginTop: 20 }}>{error}</Text>
-        <Text style={{ color: "#19382D", marginTop: 20 }}>
+        <Text selectable style={{ color: "#34302D", marginTop: 20 }}>
+          {error}
+        </Text>
+        <Text style={{ color: "#34302D", marginTop: 20 }}>
           Please share the error above. Your saved data has not been deleted.
         </Text>
       </View>
     );
   if (!state)
     return (
-      <View style={{ flex: 1, backgroundColor: "#F4F5EE", alignItems: "center", justifyContent: "center", gap: 20 }}>
-      <ActivityIndicator
-        color="#275F47"
-        accessibilityLabel="Opening encrypted local data"
-      />
-      <Text style={{ color: "#19382D", fontSize: 18 }}>Opening Steadier…</Text>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#F7F5F2",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 20,
+        }}
+      >
+        <ActivityIndicator
+          color="#75434E"
+          accessibilityLabel="Opening encrypted local data"
+        />
+        <Text style={{ color: "#34302D", fontSize: 18 }}>
+          Opening Steadier…
+        </Text>
       </View>
     );
   return (

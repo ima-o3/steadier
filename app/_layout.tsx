@@ -40,10 +40,24 @@ export function ErrorBoundary({ error }: ErrorBoundaryProps) {
     void SplashScreen.hideAsync().catch(() => {});
   }, []);
   return (
-    <View style={{ flex: 1, backgroundColor: "#F4F5EE", padding: 28, paddingTop: 80 }}>
-      <Text style={{ color: "#19382D", fontSize: 24 }}>Steadier could not start</Text>
-      <Text selectable style={{ color: "#19382D", marginTop: 20 }}>{error.message}</Text>
-      <Text style={{ color: "#19382D", marginTop: 20 }}>Your saved data has not been deleted. Please share this error message so we can fix startup.</Text>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "#F7F5F2",
+        padding: 28,
+        paddingTop: 80,
+      }}
+    >
+      <Text style={{ color: "#34302D", fontSize: 24 }}>
+        Steadier could not start
+      </Text>
+      <Text selectable style={{ color: "#34302D", marginTop: 20 }}>
+        {error.message}
+      </Text>
+      <Text style={{ color: "#34302D", marginTop: 20 }}>
+        Your saved data has not been deleted. Please share this error message so
+        we can fix startup.
+      </Text>
     </View>
   );
 }

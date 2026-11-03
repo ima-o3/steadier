@@ -4,9 +4,12 @@ import { useStore } from "./AppState";
 import { Button, Card, Copy, Heading, Row, useTheme, Field } from "./ui";
 import { indicator } from "../engines/patternDetector";
 import { localDate } from "../utils/time";
+import { palette } from "./palette";
 export function Heatmap() {
   const { state, update } = useStore(),
     t = useTheme();
+  const today = localDate(state.preferences.zone);
+  const todayValue = indicator(state.checkins.find((c) => c.date === today));
   const [month, setMonth] = useState(
       localDate(state.preferences.zone).slice(0, 7),
     ),
@@ -26,9 +29,23 @@ export function Heatmap() {
   return (
     <Card>
       <Heading>Wellbeing</Heading>
+      <Copy>
+        {todayValue
+          ? `Today · ${todayValue.value.toFixed(1)}/10`
+          : "Today · no mood or energy recorded yet"}
+      </Copy>
       <Row>
         <Button title="‹ Previous" onPress={() => change(-1)} />
         <Button title="Next ›" onPress={() => change(1)} />
+        {month !== today.slice(0, 7) && (
+          <Button
+            title="This month"
+            onPress={() => {
+              setMonth(today.slice(0, 7));
+              setSelected("");
+            }}
+          />
+        )}
       </Row>
       <Copy>
         {new Intl.DateTimeFormat("en-GB", {
@@ -52,10 +69,10 @@ export function Heatmap() {
           const color = !ind
             ? t.card
             : ind.value < 4
-              ? "#E7C3B6"
+              ? palette.berry
               : ind.value < 7
-                ? "#BDCCB2"
-                : "#77AE93";
+                ? palette.sky
+                : palette.sunrise;
           return (
             <Pressable
               key={date}
@@ -77,11 +94,18 @@ export function Heatmap() {
                   alignItems: "center",
                   borderRadius: 8,
                   backgroundColor: color,
-                  borderWidth: selected === date ? 2 : 1,
-                  borderColor: t.border,
+                  borderWidth: selected === date || date === today ? 2 : 1,
+                  borderColor:
+                    selected === date
+                      ? t.accent
+                      : date === today
+                        ? palette.watermelon
+                        : t.border,
                 }}
               >
-                <Text style={{ color: ind ? "#19382D" : t.text, fontSize: 14 }}>
+                <Text
+                  style={{ color: ind ? palette.ink : t.text, fontSize: 14 }}
+                >
                   {i + 1}
                 </Text>
               </View>
@@ -90,7 +114,7 @@ export function Heatmap() {
         })}
       </View>
       <Copy small>
-        Peach: 1–3.9 · sage: 4–6.9 · green: 7–10. Unfilled days have no data.
+        Berry: 1–3.9 · sky: 4–6.9 · sunrise: 7–10. Unfilled days have no data.
         Numbers and VoiceOver labels supplement colour.
       </Copy>
       {selected && (

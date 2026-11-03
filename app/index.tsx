@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Alert } from "react-native";
 import * as Crypto from "expo-crypto";
 import { Heatmap } from "../src/components/Heatmap";
+import { Rating } from "../src/components/Rating";
+import { resetDay } from "../src/features/planner/resetDay";
 import { useStore } from "../src/components/AppState";
 import {
   Button,
@@ -29,26 +31,43 @@ import { assessGoals } from "../src/engines/goalFeasibility";
 import { editPlanItem } from "../src/features/planner/editPlan";
 import { demoState } from "../src/features/demo";
 import { freeWindows } from "../src/engines/capacityModel";
+const dayChoices: Record<Mode, { title: string; description: string }> = {
+  recovery: {
+    title: "Take it easy",
+    description:
+      "Up to 1 small goal task. Shorter versions, with most of your free time left open.",
+  },
+  steady: {
+    title: "A balanced day",
+    description:
+      "Up to 3 goal tasks. Smaller versions of demanding tasks, with room for breaks.",
+  },
+  momentum: {
+    title: "A fuller day",
+    description:
+      "Up to 4 goal tasks. Full versions when they fit, while keeping breaks and protected rest.",
+  },
+};
 export default function Today() {
   const { state: s, update } = useStore(),
     date = localDate(s.preferences.zone),
     check = s.checkins.find((c) => c.date === date);
-  const [energy, setEnergy] = useState(""),
-    [mood, setMood] = useState(""),
-    [notes, setNotes] = useState(""),
+  const [notes, setNotes] = useState(""),
     [sleep, setSleep] = useState(""),
     [quality, setQuality] = useState(""),
     [screen, setScreen] = useState(""),
     [details, setDetails] = useState(false),
-    [mode, setMode] = useState<Mode>("steady"),
+    [mode, setMode] = useState<Mode>(s.planMeta?.[date]?.mode || "steady"),
     [explanation, setExplanation] = useState(
       s.planMeta?.[date]?.explanation ||
-        "Select a mode, then generate a plan. Recommendations are optional.",
+        "Choose how much to take on, then generate your day.",
     ),
     [edit, setEdit] = useState(""),
     [move, setMove] = useState(""),
     [editTitle, setEditTitle] = useState(""),
     [editDuration, setEditDuration] = useState("");
+  const [checkinStatus, setCheckinStatus] = useState("");
+  const checkinRequest = useRef(0);
   const items = s.plans[date] || [];
   const feasibility = assessGoals(
     s.goals,
@@ -70,6 +89,50 @@ export default function Today() {
   };
   const commit = (fn: Parameters<typeof update>[0]) =>
     void update(fn).catch(() => {});
+  async function saveRating(field: "energy" | "mood", score: number) {
+    const request = ++checkinRequest.current;
+    setCheckinStatus("Saving…");
+    try {
+      const id = Crypto.randomUUID();
+      await update((old) => {
+        const existing = old.checkins.find((c) => c.date === date);
+        return {
+          ...old,
+          checkins: [
+            ...old.checkins.filter((c) => c.date !== date),
+            { ...existing, id: existing?.id || id, date, [field]: score },
+          ],
+        };
+      });
+      if (request === checkinRequest.current)
+        setCheckinStatus("Saved · your wellbeing calendar is up to date.");
+    } catch {
+      if (request === checkinRequest.current)
+        setCheckinStatus("Could not save. Please tap your score again.");
+    }
+  }
+  function resetPlan() {
+    Alert.alert(
+      "Reset today’s plan?",
+      "Clear all unfinished suggestions, including pinned ones. Completed work and calendar appointments stay. You can generate a fresh plan afterwards.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset plan",
+          onPress: () => {
+            void update((old) => resetDay(old, date, new Date().toISOString()))
+              .then(() => {
+                setEdit("");
+                setExplanation(
+                  "Plan reset. Choose how much to take on and generate a fresh day when you’re ready.",
+                );
+              })
+              .catch(() => {});
+          },
+        },
+      ],
+    );
+  }
   function generate(selected = mode) {
     try {
       const result = planDay({
@@ -195,7 +258,7 @@ export default function Today() {
   const run = async () => {
     try {
       const score = (v: string) => (v.trim() ? Number(v) : undefined);
-      for (const v of [energy, mood, quality])
+      for (const v of [quality])
         if (
           v.trim() &&
           (!Number.isInteger(Number(v)) || Number(v) < 1 || Number(v) > 10)
@@ -217,24 +280,24 @@ export default function Today() {
           Number(screen) > 1440)
       )
         throw new Error("Screen time must be between 0 and 1440 minutes.");
-      await update((old) => ({
-        ...old,
-        checkins: [
-          ...old.checkins.filter((c) => c.date !== date),
-          {
-            id: check?.id || Crypto.randomUUID(),
-            date,
-            energy: score(energy) ?? check?.energy,
-            mood: score(mood) ?? check?.mood,
-            notes: notes || check?.notes,
-            sleepQuality: score(quality) ?? check?.sleepQuality,
-            sleepHours: score(sleep) ?? check?.sleepHours,
-            screenMinutes: score(screen) ?? check?.screenMinutes,
-          },
-        ],
-      }));
-      setEnergy("");
-      setMood("");
+      await update((old) => {
+        const saved = old.checkins.find((c) => c.date === date);
+        return {
+          ...old,
+          checkins: [
+            ...old.checkins.filter((c) => c.date !== date),
+            {
+              ...saved,
+              id: saved?.id || Crypto.randomUUID(),
+              date,
+              notes: notes || saved?.notes,
+              sleepQuality: score(quality) ?? saved?.sleepQuality,
+              sleepHours: score(sleep) ?? saved?.sleepHours,
+              screenMinutes: score(screen) ?? saved?.screenMinutes,
+            },
+          ],
+        };
+      });
       setNotes("");
       Alert.alert(
         "Saved on this device",
@@ -246,7 +309,6 @@ export default function Today() {
   };
   return (
     <Page>
-      <Heatmap />
       {s.demo && (
         <Copy small>
           DEMO DATA · Examples are stored locally. Clear demo data in Settings
@@ -288,18 +350,21 @@ export default function Today() {
         </Copy>
         {s.preferences.tracking ? (
           <>
-            <Field
-              label="Energy 1–10 · optional"
-              value={energy}
-              onChangeText={setEnergy}
-              numeric
+            <Copy small>
+              Tap a number to save immediately. 1 is very low; 10 is very high.
+              Either score is optional.
+            </Copy>
+            <Rating
+              label="Energy"
+              value={check?.energy}
+              onSelect={(score) => void saveRating("energy", score)}
             />
-            <Field
-              label="Mood 1–10 · optional"
-              value={mood}
-              onChangeText={setMood}
-              numeric
+            <Rating
+              label="Mood"
+              value={check?.mood}
+              onSelect={(score) => void saveRating("mood", score)}
             />
+            {!!checkinStatus && <Copy small>{checkinStatus}</Copy>}
             <Button
               title={details ? "Fewer fields" : "Sleep, screen time and notes"}
               onPress={() => setDetails(!details)}
@@ -330,63 +395,47 @@ export default function Today() {
                   onChangeText={setNotes}
                   multiline
                 />
+                <Button title="Save these details" onPress={() => void run()} />
               </>
             )}
-            <Button title="Save check-in" onPress={() => void run()} />
           </>
         ) : (
           <Copy>Tracking is disabled in Settings.</Copy>
         )}
       </Card>
+      <Heatmap />
       <Card>
-        <Heading>Your pace</Heading>
+        <Heading>Plan your day</Heading>
+        <Copy>How much do you want to take on?</Copy>
         <Copy small>
-          Suggested: {recommendMode(check?.energy)} based on{" "}
+          Suggested: {dayChoices[recommendMode(check?.energy)].title} based on{" "}
           {check?.energy === undefined
             ? "no energy data; a neutral default"
             : `reported energy ${check.energy}/10`}
-          . Choose any mode.
+          . You can choose any option.
         </Copy>
         <Row>
           {(["recovery", "steady", "momentum"] as Mode[]).map((m) => (
             <Button
               key={m}
-              title={m}
+              title={dayChoices[m].title}
               selected={mode === m}
               onPress={() => setMode(m)}
             />
           ))}
         </Row>
-        <Button title="Regenerate my day" onPress={() => generate()} />
+        <Copy>{dayChoices[mode].description}</Copy>
+        <Copy small>
+          Choosing an option changes the next generated plan. Pinned and
+          completed items stay when regenerating.
+        </Copy>
         <Button
-          title={`Use suggested ${recommendMode(check?.energy)} mode`}
-          onPress={() => generate(recommendMode(check?.energy))}
+          title={s.planMeta?.[date] ? "Regenerate my day" : "Generate my day"}
+          onPress={() => generate()}
         />
-        <Button
-          title="Make the plan easier"
-          onPress={() => generate("recovery")}
-        />
-        <Button
-          title="A more ambitious plan"
-          onPress={() => generate("momentum")}
-        />
-        <Button
-          title="I need rest"
-          onPress={() => {
-            commit((old) => ({
-              ...old,
-              plans: {
-                ...old.plans,
-                [date]: (old.plans[date] || []).filter(
-                  (i) => i.completed || i.locked,
-                ),
-              },
-            }));
-            setExplanation(
-              "Unpinned suggestions removed. Rest does not need to be earned.",
-            );
-          }}
-        />
+        {(!!s.planMeta?.[date] || items.some((item) => !item.completed)) && (
+          <Button title="Reset today’s plan" onPress={resetPlan} />
+        )}
         <Copy small>{explanation}</Copy>
         <Copy small>
           {s.lastSync

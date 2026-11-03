@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useStore } from "./AppState";
+import { palette } from "./palette";
 export function useTheme() {
   const system = useColorScheme(),
     { state } = useStore();
@@ -18,22 +19,24 @@ export function useTheme() {
     (state.preferences.appearance === "system" && system === "dark");
   return dark
     ? {
-        bg: "#101C1A",
-        card: "#1C2C29",
-        text: "#F0F5EF",
-        muted: "#BACBC3",
-        accent: "#A9D9C2",
-        button: "#284F40",
-        border: "#456055",
+        bg: "#252127",
+        card: "#332D35",
+        text: palette.linen,
+        muted: "#D4C9CE",
+        accent: palette.berry,
+        button: "#45404C",
+        selected: "#63434F",
+        border: "#70646F",
       }
     : {
-        bg: "#F4F5EE",
+        bg: palette.linen,
         card: "#FFFFFF",
-        text: "#19382D",
-        muted: "#52675D",
-        accent: "#275F47",
-        button: "#DCECE0",
-        border: "#B7C8BC",
+        text: palette.ink,
+        muted: "#655C64",
+        accent: palette.accent,
+        button: palette.sky,
+        selected: palette.berry,
+        border: "#C9C1C7",
       };
 }
 export function Page({
@@ -130,7 +133,7 @@ export function Button({
         justifyContent: "center",
         padding: 12,
         borderRadius: 12,
-        backgroundColor: t.button,
+        backgroundColor: selected ? t.selected : t.button,
         borderWidth: selected ? 2 : 0,
         borderColor: t.accent,
         opacity: disabled ? 0.5 : pressed ? 0.7 : 1,

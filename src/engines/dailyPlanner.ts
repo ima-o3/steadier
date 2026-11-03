@@ -156,6 +156,6 @@ export function planDay(input: {
   return {
     items: items.sort((a, b) => a.start.localeCompare(b.start)),
     version: PLANNER_VERSION,
-    explanation: `${mode} mode uses at most ${{ recovery: 20, steady: 45, momentum: 65 }[mode]}% of free time, with ${p.buffer}-minute appointment buffers and protected rest. Missing wellbeing data does not lower capacity. ${count} goal action(s) fit.`,
+    explanation: `${count} goal task${count === 1 ? "" : "s"} added. This plan leaves at least ${{ recovery: 80, steady: 55, momentum: 35 }[mode]}% of available time unscheduled, with ${p.buffer} minutes around appointments and protected rest.`,
   };
 }
