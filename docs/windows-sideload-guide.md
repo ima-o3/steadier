@@ -4,9 +4,9 @@ This route compiles the app on a GitHub-hosted Mac, downloads an **unsigned phys
 
 ## 1. Get the IPA
 
-The private repository is `ima-o3/steadier`. Open **Actions → iPhone IPA for Windows sideloading → Run workflow**. The workflow is manual-only, has a 45-minute timeout, and retains artifacts for 3 days. A new source version requires a build; a weekly signing refresh does not.
+The private repository is `ima-o3/steadier`. Open **Actions → iPhone IPA for Windows sideloading → Run workflow**. The workflow is manual-only, has a two-hour per-job timeout, and retains artifacts for 3 days. A new source version requires a build; a weekly signing refresh does not.
 
-When the run succeeds, download the **Steadier-unsigned-iphone** artifact and extract the ZIP. Keep `Steadier-unsigned.ipa`, its SHA-256 checksum and `build-info.json` on your Windows PC. The IPA includes a Release JavaScript bundle and does not require Metro or Expo Go. Apple passwords, certificates and provisioning profiles are not passed to GitHub.
+When the run succeeds, download the version-labelled **Steadier-vX.Y.Z-buildN-unsigned-iphone** artifact and extract the ZIP. Keep the version-labelled `.ipa`, its SHA-256 checksum and `build-info.json` on your Windows PC. The IPA includes a Release JavaScript bundle and does not require Metro or Expo Go. Apple passwords, certificates and provisioning profiles are not passed to GitHub.
 
 Private repositories use the GitHub account's included Actions allowance, and macOS runs consume that allowance. Keep paid overages disabled and stop if the included allowance is exhausted. This route does not promise unlimited free cloud compilation. Do not make this personal project public just to change billing.
 
@@ -14,7 +14,7 @@ Private repositories use the GitHub account's included Actions allowance, and ma
 
 1. Download Sideloadly for Windows from its official site: [sideloadly.io](https://sideloadly.io/). Follow its current Windows prerequisites for Apple device drivers/iTunes/iCloud. Avoid unrelated download mirrors.
 2. Connect your unlocked iPhone 15 Pro to the PC with a data-capable USB cable. On the phone, accept **Trust This Computer** and enter its passcode when prompted.
-3. Open Sideloadly. Choose your iPhone and drag in `Steadier-unsigned.ipa`.
+3. Open Sideloadly. Choose your iPhone and drag in the version-labelled `.ipa`.
 4. Enter your own Apple ID in Sideloadly and complete Apple's authentication there. Do not put the password, verification codes or recovery information in GitHub, project files or this chat. Sideloadly is a third-party signing tool; it handles the Apple sign-in locally through its supported flow.
 5. Keep a stable app identifier for Steadier. The cloud build uses `com.ima03.steadier`; record the final identifier if the signing tool adjusts it. Preserve the same Apple ID and final identifier for updates and refreshes. Do not inject extra tweaks or enable unrelated app capabilities.
 6. Enable Sideloadly's **automatic refresh** option and start installation.

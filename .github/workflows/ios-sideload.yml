@@ -134,14 +134,20 @@ jobs:
         env:
           BUILD_STAGE: device
         run: bash scripts/build-unsigned-ios.sh
+      - name: Name IPA from the compiled app's real version
+        if: ${{ matrix.target == 'device' }}
+        id: ipa-name
+        shell: bash
+        run: |
+          python3 scripts/name-unsigned-ipa.py build/sideload "${GITHUB_OUTPUT}"
       - name: Upload IPA for signing on Windows
         if: ${{ matrix.target == 'device' }}
         uses: actions/upload-artifact@v7
         with:
-          name: Steadier-unsigned-iphone
+          name: ${{ steps.ipa-name.outputs.artifact_name }}
           path: |
-            build/sideload/Steadier-unsigned.ipa
-            build/sideload/Steadier-unsigned.ipa.sha256
+            build/sideload/Steadier-v*-unsigned.ipa
+            build/sideload/Steadier-v*-unsigned.ipa.sha256
             build/sideload/build-info.json
           if-no-files-found: error
           retention-days: 3

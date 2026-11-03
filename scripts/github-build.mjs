@@ -34,5 +34,19 @@ try{
   if(command==='status'){const r=await(await request(`/actions/runs/${runId}`)).json();console.log(JSON.stringify({id:r.id,status:r.status,conclusion:r.conclusion,url:r.html_url,head:r.head_sha},null,2));}
   if(command==='jobs'){const r=await(await request(`/actions/runs/${runId}/jobs`)).json();console.log(JSON.stringify(r.jobs.map(j=>({id:j.id,name:j.name,status:j.status,conclusion:j.conclusion,steps:j.steps.map(s=>({name:s.name,status:s.status,conclusion:s.conclusion}))})),null,2));}
   if(command==='logs'||command==='progress'){if(!/^\d+$/.test(jobId||''))throw new Error('Supply a numeric job ID.');const text=await(await request(`/actions/jobs/${jobId}/logs`)).text();await mkdir('build/logs',{recursive:true});await writeFile(`build/logs/cloud-${runId}-${jobId}.log`,text);const lines=text.split(/\r?\n/);const selected=command==='logs'?lines.slice(-160):lines.filter(line=>/error:|\*\* BUILD|Process completed|Refusing|Verified SQLCipher|SwiftCompile|CompileC |SwiftEmitModule|^.*Z (Ld |Touch |Validate |CreateUniversalBinary )/.test(line)).slice(-12).map(line=>{const target=line.match(/in target '([^']+)'/);return target?`${line.slice(0,28)} ${line.match(/SwiftCompile|CompileC|SwiftEmitModule|Ld |Touch |Validate |CreateUniversalBinary/)?.[0]||'Build'}: ${target[1]}`:line.slice(0,1200);});console.log(selected.join('\n'));}
-  if(command==='download'){const r=await(await request(`/actions/runs/${runId}/artifacts`)).json();const name=jobId||'Steadier-unsigned-iphone';if(!['Steadier-unsigned-iphone','Steadier-simulator-startup','Steadier-build-diagnostics','Steadier-build-diagnostics-device','Steadier-build-diagnostics-simulator','Steadier-build-performance-device','Steadier-build-performance-simulator'].includes(name))throw new Error('Unknown build artifact name.');const artifact=r.artifacts.find(a=>a.name===name&&!a.expired);if(!artifact)throw new Error('No completed artifact is available yet.');const response=await request(`/actions/artifacts/${artifact.id}/zip`);const folder=path.resolve('build','downloads');await mkdir(folder,{recursive:true});const target=path.join(folder,`${name}-${runId}.zip`);await writeFile(target,new Uint8Array(await response.arrayBuffer()));console.log(target);}
+  if(command==='download'){
+    const r=await(await request(`/actions/runs/${runId}/artifacts`)).json();
+    const versioned=/^Steadier-v\d+\.\d+\.\d+-build\d+-unsigned-iphone$/;
+    const known=['Steadier-unsigned-iphone','Steadier-simulator-startup','Steadier-build-diagnostics','Steadier-build-diagnostics-device','Steadier-build-diagnostics-simulator','Steadier-build-performance-device','Steadier-build-performance-simulator'];
+    if(jobId&&!known.includes(jobId)&&!versioned.test(jobId))throw new Error('Unknown build artifact name.');
+    const artifacts=r.artifacts.filter(a=>!a.expired);
+    const artifact=jobId
+      ?artifacts.find(a=>a.name===jobId)
+      :artifacts.find(a=>versioned.test(a.name)||a.name==='Steadier-unsigned-iphone');
+    if(!artifact)throw new Error('No completed unsigned IPA artifact is available yet.');
+    const response=await request(`/actions/artifacts/${artifact.id}/zip`);
+    const folder=path.resolve('build','downloads');await mkdir(folder,{recursive:true});
+    const target=path.join(folder,`${artifact.name}-${runId}.zip`);
+    await writeFile(target,new Uint8Array(await response.arrayBuffer()));console.log(target);
+  }
 }catch(error){console.error(error.message.replaceAll(token,'[redacted]'));process.exitCode=1;}

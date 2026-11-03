@@ -254,17 +254,18 @@ export async function saveState(s: State) {
         algorithm_version: "patterns-1",
       },
     );
+    const feasibility = assessGoals(
+      s.goals,
+      s.actions,
+      s.commitments,
+      s.preferences,
+      localDate(s.preferences.zone),
+    );
     await insert(
       "goal_feasibility_reports",
       "current",
-      assessGoals(
-        s.goals,
-        s.actions,
-        s.commitments,
-        s.preferences,
-        localDate(s.preferences.zone),
-      ),
-      { algorithm_version: "feasibility-1" },
+      feasibility,
+      { algorithm_version: feasibility.version },
     );
   });
 }

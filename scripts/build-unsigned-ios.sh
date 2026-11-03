@@ -84,7 +84,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   cat >> "$GITHUB_STEP_SUMMARY" <<'SUMMARY'
 ## Steadier unsigned iPhone IPA
 
-Download **Steadier-unsigned-iphone** from this run's Artifacts section and extract the ZIP on Windows.
+Download the version-labelled **Steadier-vX.Y.Z-buildN-unsigned-iphone** artifact from this run's Artifacts section and extract the ZIP on Windows.
 The IPA is an unsigned Release build with embedded JavaScript. It is not yet installed or device-tested.
 Use Sideloadly locally with your own Apple ID to sign/install, then refresh before the seven-day signature expires.
 No Apple credentials are used in this workflow. Weekly refreshes reuse the downloaded IPA; do not rebuild every week.

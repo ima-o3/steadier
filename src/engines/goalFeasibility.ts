@@ -81,6 +81,44 @@ export function assessGoals(
         `${due.map((g) => g.name).join(" + ")}: ${Math.round(demand / 60)} h required by ${nextDate(today, Math.max(0, deadline - 1))}, at most ${(available / 60).toFixed(1)} h sustainable capacity.`,
       );
   }
+  // A total-hours comparison can be overly optimistic if several goals
+  // all need the same scarce long working window. Count contiguous sessions
+  // across ALL goals with the same (or earlier) deadline. For every minimum
+  // session length, the number of actions requiring at least that long must
+  // fit in the maximum number of such slots provided by the calendar.
+  // This is a necessary condition, not a complete scheduling proof, so it
+  // catches definite collisions without mislabelling a feasible plan because
+  // of a greedy allocation order.
+  const jointWindowChecks = [...new Set(required
+    .filter((g) => g.days > 0 && g.days <= days.length)
+    .map((g) => g.days))].sort((a, b) => a - b);
+  for (const deadline of jointWindowChecks) {
+    const dueGoalIds = new Set(required
+      .filter((g) => g.days > 0 && g.days <= deadline)
+      .map((g) => g.id));
+    const minimumSessions = actions
+      .filter((a) =>
+        dueGoalIds.has(a.goalId) &&
+        !a.completed &&
+        a.dependencies.every((id) =>
+          actions.some((d) => d.id === id && d.completed)))
+      .map((a) => Math.min(a.minutes, ...a.variants.map((v) => v.minutes)))
+      .filter((minutes) => Number.isFinite(minutes) && minutes > 0);
+    if (!minimumSessions.length) continue;
+    const windows = days.slice(0, deadline)
+      .flatMap((d) => d.windows.map((w) => duration(w.start, w.end)));
+    for (const minutes of [...new Set(minimumSessions)].sort((a, b) => b - a)) {
+      const needed = minimumSessions.filter((n) => n >= minutes).length;
+      const slots = windows.reduce((sum, length) =>
+        sum + Math.floor(length / minutes), 0);
+      if (needed > slots) {
+        bottlenecks.push(
+          `Across goals due by ${nextDate(today, deadline - 1)}: ${needed} actions need at least ${minutes} uninterrupted minutes, but the calendar has space for at most ${slots} such sessions. Try smaller action versions, longer free windows, or different deadlines.`,
+        );
+        break;
+      }
+    }
+  }
   for (const g of required) {
     const availableDays = days.slice(0, Math.min(g.days, 91)),
       unfinished = actions.filter((a) => a.goalId === g.id && !a.completed),
@@ -123,13 +161,13 @@ export function assessGoals(
   const status =
     !active.length || missing.length
       ? "Insufficient information"
-      : low > capacity.high || bottlenecks.length
+      : bottlenecks.length
         ? "Currently infeasible"
-        : high > capacity.low
+        : low > capacity.high || high > capacity.low
           ? "At risk"
           : "Feasible";
   return {
-    version: "feasibility-1",
+    version: "feasibility-2",
     status,
     required: { low, high },
     capacity: { low: capacity.low, high: capacity.high },
@@ -154,6 +192,6 @@ export function assessGoals(
         : [
             "Consider extending a deadline, reducing milestone scope, or pausing a lower-priority goal. Your priorities will stay unchanged.",
           ],
-    assumptions: `Next 13 weeks; ${Math.round(p.capacityLow * 100)}–${Math.round(p.capacityHigh * 100)}% of free windows, capped at ${p.weeklyMinutes / 60} discretionary hours/week. Includes minimum work frequency. Deadline demand is cumulative across goals. Beyond 13 weeks uses a weekly projection; future availability is uncertain. Smallest actions are checked against actual windows, not a full resource-constrained scheduling proof. Estimates are not exact.`,
+    assumptions: `Next 13 weeks; ${Math.round(p.capacityLow * 100)}–${Math.round(p.capacityHigh * 100)}% of free windows, capped at ${p.weeklyMinutes / 60} discretionary hours/week. Includes minimum work frequency. Deadline demand is cumulative across goals. Beyond 13 weeks uses a weekly projection; future availability is uncertain. Smallest actions are checked against actual windows including shared cross-goal slot limits; this is a necessary-condition check, not a full resource-constrained scheduling proof. A weekly-rate overload without a concrete scheduling bottleneck is labelled At risk, not proven infeasible. Estimates are not exact.`,
   };
 }
