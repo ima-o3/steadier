@@ -12,6 +12,13 @@ on:
         description: "Device-only retry after simulator validation of unchanged app code"
         type: boolean
         default: false
+      runner:
+        description: "Standard Mac pool (ARM is an option when capacity returns)"
+        type: choice
+        options:
+          - macos-26-intel
+          - macos-26
+        default: macos-26-intel
 
 permissions:
   contents: read
@@ -29,7 +36,7 @@ jobs:
         target: ${{ fromJSON(inputs.simulator_only && '["simulator"]' || inputs.skip_simulator && '["device"]' || '["simulator","device"]') }}
     # Use the standard Intel pool while ARM runners have acquisition failures.
     # Xcode still cross-compiles the device IPA for arm64.
-    runs-on: macos-26-intel
+    runs-on: ${{ inputs.runner || 'macos-26-intel' }}
     timeout-minutes: 120
     env:
       CI: "1"
@@ -37,6 +44,12 @@ jobs:
       EXPO_NO_DOTENV: "1"
       IOS_BUNDLE_IDENTIFIER: com.ima03.steadier
       SIMULATOR_SMOKE: ${{ matrix.target == 'simulator' && '1' || '0' }}
+      USE_CCACHE: "1"
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 2G
+      SEGMENT_DOWNLOAD_TIMEOUT_MINS: "3"
       EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ vars.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
       GOOGLE_IOS_URL_SCHEME: ${{ vars.GOOGLE_IOS_URL_SCHEME }}
     steps:
@@ -54,8 +67,50 @@ jobs:
           package-manager-cache: false
       - name: Install the pinned package manager
         run: npm install --global pnpm@11.25.0
+      - name: Identify dependency store
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Restore dependency downloads
+        continue-on-error: true
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
+      - name: Set up native compiler cache
+        id: native-cache
+        run: |
+          if ! command -v ccache >/dev/null 2>&1 && ! HOMEBREW_NO_AUTO_UPDATE=1 brew install ccache; then
+            echo '::warning::ccache could not be installed; continuing with an uncached build.'
+            echo 'USE_CCACHE=0' >> "$GITHUB_ENV"
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mkdir -p "$CCACHE_DIR"
+          fingerprint=$({ xcodebuild -version; xcrun clang --version; ccache --version; } | shasum -a 256 | awk '{print $1}')
+          echo "toolchain=$fingerprint" >> "$GITHUB_OUTPUT"
+          echo 'enabled=true' >> "$GITHUB_OUTPUT"
+      - name: Restore CocoaPods downloads
+        if: steps.native-cache.outputs.enabled == 'true'
+        continue-on-error: true
+        uses: actions/cache@v5
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: pods-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.native-cache.outputs.toolchain }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Restore compiled native objects
+        id: compiler-cache
+        if: steps.native-cache.outputs.enabled == 'true'
+        continue-on-error: true
+        uses: actions/cache/restore@v5
+        with:
+          path: .ccache
+          key: ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-${{ steps.native-cache.outputs.toolchain }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-${{ steps.native-cache.outputs.toolchain }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - name: Reset per-build cache statistics
+        if: steps.native-cache.outputs.enabled == 'true'
+        run: ccache --zero-stats
       - name: Verify application logic and native components
         run: |
           pnpm typecheck
@@ -99,5 +154,36 @@ jobs:
           path: |
             build/logs/
             build/sideload/Steadier-built-app.zip
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Record compiler cache effectiveness
+        if: ${{ always() && steps.native-cache.outputs.enabled == 'true' }}
+        continue-on-error: true
+        run: |
+          mkdir -p build/logs
+          ccache --show-stats | tee build/logs/ccache-stats.txt
+          {
+            echo '### Native compiler cache'
+            echo '```text'
+            cat build/logs/ccache-stats.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Save compiled objects, including partial builds
+        if: ${{ always() && steps.compiler-cache.outcome == 'success' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: actions/cache/save@v5
+        with:
+          path: .ccache
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+      - name: Upload build performance evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Steadier-build-performance-${{ matrix.target }}
+          path: |
+            build/logs/ccache-stats.txt
+            build/logs/xcodebuild.log
+            build/simulator/compile.log
           if-no-files-found: ignore
           retention-days: 3

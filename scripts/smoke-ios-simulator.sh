@@ -13,14 +13,15 @@ Path('build/simulator/entitlements.plist').write_bytes(plistlib.dumps({
     'keychain-access-groups': [identifier],
 }))
 PY
-xcodebuild -workspace ios/Steadier.xcworkspace -scheme Steadier \
+python3 scripts/run-xcode-build.py --log build/simulator/compile.log -- xcodebuild -workspace ios/Steadier.xcworkspace -scheme Steadier \
   -configuration Release -sdk iphonesimulator -destination "platform=iOS Simulator,id=$device_id" \
   -derivedDataPath build/SimulatorDerivedData ONLY_ACTIVE_ARCH=YES \
   CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
   CODE_SIGN_ENTITLEMENTS="$PWD/build/simulator/entitlements.plist" \
-  build > build/simulator/compile.log 2>&1
+  -showBuildTimingSummary build
 codesign -d --entitlements :- build/SimulatorDerivedData/Build/Products/Release-iphonesimulator/Steadier.app > build/simulator/signed-entitlements.plist 2> build/simulator/signing.log
 xcrun simctl boot "$device_id"
+trap 'xcrun simctl shutdown "$device_id" >/dev/null 2>&1 || true' EXIT
 xcrun simctl bootstatus "$device_id" -b
 xcrun simctl install "$device_id" build/SimulatorDerivedData/Build/Products/Release-iphonesimulator/Steadier.app
 xcrun simctl launch "$device_id" "${IOS_BUNDLE_IDENTIFIER:-com.ima03.steadier}"

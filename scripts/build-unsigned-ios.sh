@@ -37,6 +37,13 @@ if not config.is_file() or 'SQLITE_HAS_CODEC' not in config.read_text():
     raise SystemExit('Refusing to build: ExpoSQLite Release compiler configuration does not enable SQLCipher.')
 print('Verified SQLCipher in the generated ExpoSQLite Release compiler configuration.')
 PY
+if [[ "${USE_CCACHE:-0}" == "1" ]]; then
+  if ! grep -q 'ccache-clang' ios/Pods/Pods.xcodeproj/project.pbxproj; then
+    echo 'Compiler caching was requested but CocoaPods did not enable it.' >&2
+    exit 1
+  fi
+  echo 'Verified React Native compiler-cache integration.'
+fi
 
 if [[ "${SIMULATOR_SMOKE:-0}" == "1" ]]; then
   bash scripts/smoke-ios-simulator.sh
@@ -48,19 +55,20 @@ fi
 
 # Build for physical iPhones, not an iOS simulator. Signing is performed later
 # by Sideloadly on the user's PC. No Apple login/certificate is used here.
-xcodebuild \
+python3 scripts/run-xcode-build.py --log build/logs/xcodebuild.log -- xcodebuild \
   -workspace ios/Steadier.xcworkspace \
   -scheme Steadier \
   -configuration Release \
   -sdk iphoneos \
   -destination 'generic/platform=iOS' \
   -derivedDataPath build/DerivedData \
+  -showBuildTimingSummary \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGNING_REQUIRED=NO \
   CODE_SIGN_IDENTITY= \
   DEVELOPMENT_TEAM= \
   ONLY_ACTIVE_ARCH=NO \
-  build 2>&1 | tee build/logs/xcodebuild.log
+  build
 
 app_path="$project_root/build/DerivedData/Build/Products/Release-iphoneos/Steadier.app"
 if [[ ! -d "$app_path" ]]; then

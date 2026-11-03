@@ -3,6 +3,7 @@ node_modules/
 dist/
 coverage/
 .test-cache/
+.ccache/
 .env*
 !.env.example
 *.p8
