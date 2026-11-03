@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, Modal } from "react-native";
+import { Alert, Modal, Text, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import { useStore } from "../../src/components/AppState";
 import {
@@ -12,11 +12,16 @@ import {
   Row,
   message,
 } from "../../src/components/ui";
-import { removeGoal } from "../../src/features/goals/removeGoal";
+import { SlideDelete } from "../../src/components/SlideDelete";
+import { WorkEditor, WorkSelection } from "../../src/components/WorkEditor";
+import {
+  removeActions,
+  removeMilestone,
+  removeGoal,
+} from "../../src/features/goals/removeGoal";
 import { Goal } from "../../src/types";
 import { assessGoals } from "../../src/engines/goalFeasibility";
 import { localDate } from "../../src/utils/time";
-import { validateDependencies } from "../../src/features/goals/dependencies";
 export default function Goals() {
   const { state: s, update } = useStore();
   const [formVisible, setFormVisible] = useState(false);
@@ -33,18 +38,44 @@ export default function Goals() {
     [min, setMin] = useState(""),
     [max, setMax] = useState(""),
     [frequency, setFrequency] = useState("3"),
-    [minimum, setMinimum] = useState("5"),
-    [goalId, setGoalId] = useState(""),
-    [milestoneId, setMilestoneId] = useState(""),
-    [milestone, setMilestone] = useState(""),
-    [title, setTitle] = useState(""),
-    [minutes, setMinutes] = useState("30"),
-    [effort, setEffort] = useState("5"),
-    [small, setSmall] = useState(""),
-    [smallMinutes, setSmallMinutes] = useState("10"),
-    [tiny, setTiny] = useState(""),
-    [dependency, setDependency] = useState(""),
-    [editingAction, setEditingAction] = useState("");
+    [minimum, setMinimum] = useState("5");
+  const [section, setSection] = useState<"active" | "completed" | "archived">(
+    "active",
+  );
+  const [work, setWork] = useState<WorkSelection | null>(null);
+  const inSection = (g: Goal, tab = section) =>
+    tab === "active"
+      ? g.status === "active" || g.status === "paused"
+      : g.status === tab;
+  const visibleGoals = s.goals.filter((g) => inSection(g));
+  function deleteWork(kind: "milestone" | "action", id: string, title: string) {
+    Alert.alert(
+      `Delete ${title}?`,
+      kind === "milestone"
+        ? "The milestone will be deleted. Its actions will stay in the goal without a milestone."
+        : "The action and its unfinished plan suggestions will be deleted. Completed plan history stays.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            void update((old) =>
+              kind === "milestone"
+                ? removeMilestone(old, id)
+                : removeActions(old, new Set([id])),
+            ).catch((e) => Alert.alert("Could not delete", message(e)));
+          },
+        },
+      ],
+    );
+  }
+  function changeStatus(g: Goal, status: Goal["status"]) {
+    void update((old) => ({
+      ...old,
+      goals: old.goals.map((x) => (x.id === g.id ? { ...x, status } : x)),
+    })).catch((e) => Alert.alert("Could not move goal", message(e)));
+  }
   const report = assessGoals(
     s.goals,
     s.actions,
@@ -53,7 +84,7 @@ export default function Goals() {
     localDate(s.preferences.zone),
   );
   const commit = (fn: Parameters<typeof update>[0]) =>
-    void update(fn).catch(() => {});
+    void update(fn).catch((e) => Alert.alert("Could not save", message(e)));
   function newGoal() {
     setGoalDetails(false);
     setEditing("");
@@ -71,17 +102,17 @@ export default function Goals() {
   }
   function remove(g: Goal) {
     Alert.alert(
-      `Remove ${g.name}?`,
+      `Delete ${g.name}?`,
       "This removes the goal, its milestones, actions and unfinished plan suggestions. Completed plan history and check-ins stay.",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Remove goal",
+          text: "Delete",
           style: "destructive",
           onPress: () => {
             void update((old) => removeGoal(old, g.id))
               .then(() => {
-                if (goalId === g.id) setGoalId("");
+                if (work?.goalId === g.id) setWork(null);
               })
               .catch((e) => Alert.alert("Could not remove goal", message(e)));
           },
@@ -156,7 +187,7 @@ export default function Goals() {
       setFormVisible(false);
       setName("");
       setEditing("");
-      setGoalId(id);
+      setSection(g.status === "paused" ? "active" : g.status);
     } catch (e) {
       Alert.alert("Goal", message(e));
     } finally {
@@ -166,6 +197,20 @@ export default function Goals() {
   return (
     <Page title="Goals">
       <Button title="Add goal" onPress={newGoal} />
+      <Row>
+        {(["active", "completed", "archived"] as const).map((tab) => (
+          <Button
+            key={tab}
+            title={`${tab === "active" ? "Active" : tab === "completed" ? "Completed" : "Archive"} (${s.goals.filter((g) => inSection(g, tab)).length})`}
+            selected={section === tab}
+            onPress={() => setSection(tab)}
+          />
+        ))}
+      </Row>
+      {s.goals.length > 0 && visibleGoals.length === 0 && (
+        <Copy>No goals in this section yet.</Copy>
+      )}
+      {work && <WorkEditor selection={work} onClose={() => setWork(null)} />}
       {s.goals.length === 0 && (
         <Card>
           <Heading>Make room for something that matters</Heading>
@@ -260,241 +305,192 @@ export default function Goals() {
           </Card>
         </Page>
       </Modal>
-      {s.goals.map((g) => (
+      {visibleGoals.map((g) => (
         <Card key={g.id}>
           <Heading>{g.name}</Heading>
-          <Copy>
-            {g.status} · importance {g.importance}/5 · priority {g.priority}
-          </Copy>
+          {!!g.description && <Copy>{g.description}</Copy>}
           <Copy small>
-            {g.description} · {g.deadline || "No deadline"} · remaining{" "}
-            {g.effortMin === undefined
-              ? "unknown"
-              : `${g.effortMin / 60}–${g.effortMax! / 60} h`}
-          </Copy>
-          <Copy small>
-            {
-              s.milestones.filter((m) => m.goalId === g.id && m.completed)
-                .length
-            }
-            /{s.milestones.filter((m) => m.goalId === g.id).length} milestones
-            achieved.{" "}
-            {s.actions.filter((a) => a.goalId === g.id && a.completed).length}{" "}
-            actions completed. Remaining effort is manually estimated;
-            completion does not silently change it.
+            {g.status === "paused" ? "Paused · " : ""}
+            {g.deadline || "No deadline"} · priority {g.priority}
           </Copy>
           <Row>
             <Button title="Edit goal" onPress={() => edit(g)} />
-            <Button title="Remove goal" onPress={() => remove(g)} />
             <Button
               title="Add work"
-              onPress={() => {
-                setGoalId(g.id);
-                setEditingAction("");
-                setTitle("");
-                setSmall("");
-                setTiny("");
-                setDependency("");
-                setMilestoneId("");
-              }}
+              onPress={() => setWork({ goalId: g.id, kind: "action" })}
             />
-            {(["active", "paused", "completed", "archived"] as const)
-              .filter((status) => status !== g.status)
-              .map((status) => (
-                <Button
-                  title={status}
-                  key={status}
-                  onPress={() =>
-                    commit((old) => ({
-                      ...old,
-                      goals: old.goals.map((x) =>
-                        x.id === g.id ? { ...x, status } : x,
-                      ),
-                    }))
-                  }
-                />
-              ))}
           </Row>
-          {s.milestones
-            .filter((m) => m.goalId === g.id)
-            .map((m) => (
+          <Row>
+            {g.status !== "completed" && (
               <Button
-                key={m.id}
-                title={`${m.completed ? "✓ " : ""}${m.name}`}
+                title="Complete goal"
+                onPress={() => changeStatus(g, "completed")}
+              />
+            )}
+            {g.status !== "archived" && (
+              <Button
+                title="Archive goal"
+                onPress={() => changeStatus(g, "archived")}
+              />
+            )}
+            {(g.status === "completed" || g.status === "archived") && (
+              <Button
+                title="Restore to active"
+                onPress={() => changeStatus(g, "active")}
+              />
+            )}
+            {(g.status === "active" || g.status === "paused") && (
+              <Button
+                title={g.status === "paused" ? "Resume goal" : "Pause goal"}
                 onPress={() =>
-                  commit((old) => ({
-                    ...old,
-                    milestones: old.milestones.map((x) =>
-                      x.id === m.id ? { ...x, completed: !x.completed } : x,
-                    ),
-                  }))
+                  changeStatus(g, g.status === "paused" ? "active" : "paused")
                 }
               />
-            ))}
-          {s.actions
-            .filter((a) => a.goalId === g.id)
-            .map((a) => (
-              <React.Fragment key={a.id}>
-                <Copy small>
-                  {a.completed ? "✓ " : ""}
-                  {a.title} · {a.minutes} min · {a.variants.length} smaller
-                  versions · ID {a.id}
-                </Copy>
-                <Button
-                  title={`Edit ${a.title}`}
-                  onPress={() => {
-                    setGoalId(a.goalId);
-                    setEditingAction(a.id);
-                    setMilestoneId(a.milestoneId || "");
-                    setTitle(a.title);
-                    setMinutes(String(a.minutes));
-                    setEffort(String(a.effort));
-                    setSmall(a.variants[0]?.title || "");
-                    setSmallMinutes(String(a.variants[0]?.minutes || 10));
-                    setTiny(a.variants[1]?.title || "");
-                    setDependency(a.dependencies.join(","));
-                  }}
-                />
-              </React.Fragment>
-            ))}
+            )}
+          </Row>
+          <View
+            style={{
+              backgroundColor: "#DCEBFA",
+              borderRadius: 20,
+              padding: 14,
+              gap: 12,
+            }}
+          >
+            <Text
+              accessibilityRole="header"
+              style={{ color: "#30465D", fontSize: 20, fontWeight: "700" }}
+            >
+              Milestones
+            </Text>
+            {s.milestones.filter((m) => m.goalId === g.id).length === 0 && (
+              <Text style={{ color: "#30465D" }}>No milestones yet.</Text>
+            )}
+            {s.milestones
+              .filter((m) => m.goalId === g.id)
+              .map((m) => (
+                <View key={m.id} style={{ gap: 8 }}>
+                  <Text
+                    style={{
+                      color: "#30465D",
+                      fontSize: 17,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {m.completed ? "✓ " : ""}
+                    {m.name}
+                  </Text>
+                  <Row>
+                    <Button
+                      title={`Edit milestone: ${m.name}`}
+                      onPress={() =>
+                        setWork({
+                          goalId: g.id,
+                          kind: "milestone",
+                          editId: m.id,
+                        })
+                      }
+                    />
+                    <Button
+                      title={`Delete milestone: ${m.name}`}
+                      onPress={() => deleteWork("milestone", m.id, m.name)}
+                    />
+                  </Row>
+                  <Button
+                    title={
+                      m.completed
+                        ? `Reopen milestone: ${m.name}`
+                        : `Complete milestone: ${m.name}`
+                    }
+                    onPress={() =>
+                      commit((old) => ({
+                        ...old,
+                        milestones: old.milestones.map((x) =>
+                          x.id === m.id ? { ...x, completed: !x.completed } : x,
+                        ),
+                      }))
+                    }
+                  />
+                </View>
+              ))}
+            <Button
+              title="Add milestone"
+              onPress={() => setWork({ goalId: g.id, kind: "milestone" })}
+            />
+          </View>
+          <View
+            style={{
+              backgroundColor: "#F9DDE0",
+              borderRadius: 20,
+              padding: 14,
+              gap: 12,
+            }}
+          >
+            <Text
+              accessibilityRole="header"
+              style={{ color: "#673E49", fontSize: 20, fontWeight: "700" }}
+            >
+              Actions
+            </Text>
+            {s.actions.filter((a) => a.goalId === g.id).length === 0 && (
+              <Text style={{ color: "#673E49" }}>No actions yet.</Text>
+            )}
+            {s.actions
+              .filter((a) => a.goalId === g.id)
+              .map((a) => (
+                <View key={a.id} style={{ gap: 8 }}>
+                  <Text
+                    style={{
+                      color: "#673E49",
+                      fontSize: 17,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {a.completed ? "✓ " : ""}
+                    {a.title}
+                  </Text>
+                  <Text style={{ color: "#673E49" }}>
+                    {a.minutes} min
+                    {a.milestoneId
+                      ? ` · ${s.milestones.find((m) => m.id === a.milestoneId)?.name || "Milestone"}`
+                      : ""}
+                  </Text>
+                  <Row>
+                    <Button
+                      title={`Edit action: ${a.title}`}
+                      onPress={() =>
+                        setWork({ goalId: g.id, kind: "action", editId: a.id })
+                      }
+                    />
+                    <Button
+                      title={`Delete action: ${a.title}`}
+                      onPress={() => deleteWork("action", a.id, a.title)}
+                    />
+                  </Row>
+                  <Button
+                    title={
+                      a.completed
+                        ? `Reopen action: ${a.title}`
+                        : `Complete action: ${a.title}`
+                    }
+                    onPress={() =>
+                      commit((old) => ({
+                        ...old,
+                        actions: old.actions.map((x) =>
+                          x.id === a.id ? { ...x, completed: !x.completed } : x,
+                        ),
+                      }))
+                    }
+                  />
+                </View>
+              ))}
+            <Button
+              title="Add action"
+              onPress={() => setWork({ goalId: g.id, kind: "action" })}
+            />
+          </View>
+          <SlideDelete name={g.name} onDelete={() => remove(g)} />
         </Card>
       ))}
-      {goalId && (
-        <Card>
-          <Heading>
-            Add work to {s.goals.find((g) => g.id === goalId)?.name}
-          </Heading>
-          <Field
-            label="New milestone name"
-            value={milestone}
-            onChangeText={setMilestone}
-          />
-          <Button
-            title="Add milestone"
-            onPress={() => {
-              if (!milestone.trim()) return;
-              const id = Crypto.randomUUID();
-              commit((old) => ({
-                ...old,
-                milestones: [
-                  ...old.milestones,
-                  { id, goalId, name: milestone.trim(), completed: false },
-                ],
-              }));
-              setMilestoneId(id);
-              setMilestone("");
-            }}
-          />
-          <Copy small>Select parent milestone (optional)</Copy>
-          {s.milestones
-            .filter((m) => m.goalId === goalId)
-            .map((m) => (
-              <Button
-                title={m.name}
-                key={m.id}
-                selected={milestoneId === m.id}
-                onPress={() => setMilestoneId(m.id)}
-              />
-            ))}
-          <Field label="Action name" value={title} onChangeText={setTitle} />
-          <Field
-            label="Duration · minutes"
-            value={minutes}
-            onChangeText={setMinutes}
-            numeric
-          />
-          <Field
-            label="Effort 1–10"
-            value={effort}
-            onChangeText={setEffort}
-            numeric
-          />
-          <Field
-            label="Smaller version · optional"
-            value={small}
-            onChangeText={setSmall}
-          />
-          <Field
-            label="Smaller version minutes"
-            value={smallMinutes}
-            onChangeText={setSmallMinutes}
-            numeric
-          />
-          <Field
-            label="Minimum version · 5 minutes · optional"
-            value={tiny}
-            onChangeText={setTiny}
-          />
-          <Field
-            label="Dependency action IDs · comma-separated · optional"
-            value={dependency}
-            onChangeText={setDependency}
-          />
-          <Button
-            title={editingAction ? "Save action changes" : "Add action"}
-            onPress={() => {
-              if (
-                !title.trim() ||
-                !Number.isFinite(Number(minutes)) ||
-                Number(minutes) < 1 ||
-                !Number.isFinite(Number(effort)) ||
-                Number(effort) < 1 ||
-                Number(effort) > 10 ||
-                (small &&
-                  (!Number.isFinite(Number(smallMinutes)) ||
-                    Number(smallMinutes) < 1 ||
-                    Number(smallMinutes) > Number(minutes))) ||
-                (tiny && Number(minutes) < 5)
-              ) {
-                Alert.alert(
-                  "Action",
-                  "Use a title, positive duration, effort 1–10 and smaller versions within the full duration.",
-                );
-                return;
-              }
-              const id = editingAction || Crypto.randomUUID(),
-                dependencies = dependency
-                  .split(",")
-                  .map((d) => d.trim())
-                  .filter(Boolean);
-              try {
-                validateDependencies(id, dependencies, s.actions);
-              } catch (e) {
-                Alert.alert("Dependency", message(e));
-                return;
-              }
-              commit((old) => ({
-                ...old,
-                actions: [
-                  ...old.actions.filter((a) => a.id !== id),
-                  {
-                    id,
-                    goalId,
-                    milestoneId: milestoneId || undefined,
-                    title: title.trim(),
-                    minutes: Number(minutes),
-                    effort: Number(effort),
-                    completed:
-                      old.actions.find((a) => a.id === id)?.completed || false,
-                    dependencies,
-                    variants: [
-                      ...(small
-                        ? [{ title: small, minutes: Number(smallMinutes) }]
-                        : []),
-                      ...(tiny ? [{ title: tiny, minutes: 5 }] : []),
-                    ],
-                  },
-                ],
-              }));
-              setTitle("");
-              setEditingAction("");
-              setSmall("");
-              setTiny("");
-              setDependency("");
-            }}
-          />
-        </Card>
-      )}
       <Button
         title={
           capacityVisible ? "Hide capacity details" : "View capacity details"

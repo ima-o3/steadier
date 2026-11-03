@@ -225,3 +225,38 @@ it("removing a goal cleans references and preserves completed history across per
   expect(restored.checkins).toEqual(state.checkins);
   expect(restored.excludedActions[date]).toEqual([]);
 });
+
+it("deleting milestones keeps actions and deleting actions clears dependencies through persistence", async () => {
+  const { removeActions, removeMilestone } =
+    await import("../features/goals/removeGoal");
+  await openStore();
+  const state = {
+    ...defaultState,
+    goals: [goal],
+    milestones: [
+      {
+        id: "milestone",
+        goalId: goal.id,
+        name: "First version",
+        completed: false,
+      },
+    ],
+    actions: [
+      { ...action, milestoneId: "milestone" },
+      { ...action, id: "dependent", dependencies: [action.id] },
+    ],
+  };
+  await saveState(state);
+  await saveState(removeMilestone(state, "milestone"));
+  const withoutMilestone = await openStore();
+  expect(withoutMilestone.milestones).toHaveLength(0);
+  expect(withoutMilestone.actions).toHaveLength(2);
+  expect(
+    withoutMilestone.actions.find((a) => a.id === action.id)?.milestoneId,
+  ).toBeUndefined();
+  await saveState(removeActions(withoutMilestone, new Set([action.id])));
+  const withoutAction = await openStore();
+  expect(withoutAction.actions).toHaveLength(1);
+  expect(withoutAction.actions[0]?.dependencies).toEqual([]);
+  expect(withoutAction.goals).toEqual([goal]);
+});

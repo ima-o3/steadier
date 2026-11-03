@@ -4,14 +4,30 @@ export function removeGoal(state: State, goalId: string): State {
   const removed = new Set(
     state.actions.filter((a) => a.goalId === goalId).map((a) => a.id),
   );
+  return {
+    ...removeActions(state, removed),
+    goals: state.goals.filter((g) => g.id !== goalId),
+    milestones: state.milestones.filter((m) => m.goalId !== goalId),
+  };
+}
+
+export function removeMilestone(state: State, id: string): State {
+  return {
+    ...state,
+    milestones: state.milestones.filter((m) => m.id !== id),
+    actions: state.actions.map((a) =>
+      a.milestoneId === id ? { ...a, milestoneId: undefined } : a,
+    ),
+  };
+}
+
+export function removeActions(state: State, removed: Set<string>): State {
   const detach = (item: PlanItem): PlanItem =>
     removed.has(item.actionId ?? "") ? { ...item, actionId: undefined } : item;
   return {
     ...state,
-    goals: state.goals.filter((g) => g.id !== goalId),
-    milestones: state.milestones.filter((m) => m.goalId !== goalId),
     actions: state.actions
-      .filter((a) => a.goalId !== goalId)
+      .filter((a) => !removed.has(a.id))
       .map((a) => ({
         ...a,
         dependencies: a.dependencies.filter((id) => !removed.has(id)),
