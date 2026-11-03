@@ -23,9 +23,10 @@ try{
     console.log(`Canceled superseded build ${runId}.`);
   }
   if(command==='dispatch'){
-    const response=await fetch(api+'/actions/workflows/ios-sideload.yml/dispatches',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({ref:'main',inputs:{simulator_only:runId==='simulator'}})});
+    if(runId && !['simulator','device'].includes(runId)) throw new Error('Use dispatch, dispatch simulator, or dispatch device.');
+    const response=await fetch(api+'/actions/workflows/ios-sideload.yml/dispatches',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({ref:'main',inputs:{simulator_only:runId==='simulator',skip_simulator:runId==='device'}})});
     if(!response.ok)throw new Error(`GitHub dispatch failed (${response.status}).`);
-    console.log('Started manual iPhone build on main.');
+    console.log(runId==='device'?'Started device-only iPhone build on main; reusing prior simulator validation.':'Started manual iPhone build on main.');
     const result=await(await request('/actions/workflows/ios-sideload.yml/runs?per_page=3')).json();
     console.log(JSON.stringify(result.workflow_runs.map(r=>({id:r.id,status:r.status,head:r.head_sha,url:r.html_url})),null,2));
   }
