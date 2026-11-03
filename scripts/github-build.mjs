@@ -23,7 +23,7 @@ try{
     console.log(`Canceled superseded build ${runId}.`);
   }
   if(command==='dispatch'){
-    const response=await fetch(api+'/actions/workflows/ios-sideload.yml/dispatches',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({ref:'main'})});
+    const response=await fetch(api+'/actions/workflows/ios-sideload.yml/dispatches',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({ref:'main',inputs:{simulator_only:runId==='simulator'}})});
     if(!response.ok)throw new Error(`GitHub dispatch failed (${response.status}).`);
     console.log('Started manual iPhone build on main.');
     const result=await(await request('/actions/workflows/ios-sideload.yml/runs?per_page=3')).json();

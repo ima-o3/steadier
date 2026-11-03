@@ -3,12 +3,17 @@ name: iPhone IPA for Windows sideloading
 # Manual only: weekly refreshes reuse the IPA and do not need new cloud builds.
 on:
   workflow_dispatch:
+    inputs:
+      simulator_only:
+        description: 'Check startup without rebuilding the device IPA'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: steadier-unsigned-iphone
+  group: steadier-${{ inputs.simulator_only && 'simulator' || 'unsigned-iphone' }}
   cancel-in-progress: false
 
 jobs:
@@ -53,10 +58,12 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
       - name: Compile unsigned device app and package IPA
+        if: ${{ !inputs.simulator_only }}
         env:
           BUILD_STAGE: device
         run: bash scripts/build-unsigned-ios.sh
       - name: Upload IPA for signing on Windows
+        if: ${{ !inputs.simulator_only }}
         uses: actions/upload-artifact@v7
         with:
           name: Steadier-unsigned-iphone
