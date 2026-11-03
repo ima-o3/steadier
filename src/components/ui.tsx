@@ -6,7 +6,6 @@ import {
   TextInput,
   View,
   useColorScheme,
-  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useStore } from "./AppState";
@@ -19,24 +18,24 @@ export function useTheme() {
     (state.preferences.appearance === "system" && system === "dark");
   return dark
     ? {
-        bg: "#252127",
-        card: "#332D35",
+        bg: "#211D32",
+        card: "#302A45",
         text: palette.linen,
         muted: "#D4C9CE",
-        accent: palette.berry,
-        button: "#45404C",
-        selected: "#63434F",
-        border: "#70646F",
+        accent: "#C9B9FF",
+        button: "#42395C",
+        selected: "#57447E",
+        border: "#625675",
       }
     : {
-        bg: palette.linen,
+        bg: palette.lavender,
         card: "#FFFFFF",
         text: palette.ink,
-        muted: "#655C64",
+        muted: "#6B627E",
         accent: palette.accent,
-        button: palette.sky,
-        selected: palette.berry,
-        border: "#C9C1C7",
+        button: "#F0ECFC",
+        selected: palette.lilac,
+        border: "#DDD5ED",
       };
 }
 export function Page({
@@ -56,7 +55,19 @@ export function Page({
         contentContainerStyle={{ padding: 20, paddingBottom: 48, gap: 16 }}
         keyboardShouldPersistTaps="handled"
       >
-        {title && <Heading>{title}</Heading>}
+        {title && (
+          <Text
+            accessibilityRole="header"
+            style={{
+              fontSize: 36,
+              fontWeight: "800",
+              letterSpacing: -1,
+              color: t.text,
+            }}
+          >
+            {title}
+          </Text>
+        )}
         {children}
       </ScrollView>
     </SafeAreaView>
@@ -67,7 +78,7 @@ export function Heading({ children }: { children: React.ReactNode }) {
   return (
     <Text
       accessibilityRole="header"
-      style={{ fontSize: 27, fontWeight: "600", color: t.text }}
+      style={{ fontSize: 24, fontWeight: "700", color: t.text }}
     >
       {children}
     </Text>
@@ -99,10 +110,10 @@ export function Card({ children }: { children: React.ReactNode }) {
     <View
       style={{
         backgroundColor: t.card,
-        borderRadius: 20,
-        padding: 18,
+        borderRadius: 28,
+        padding: 20,
         gap: 12,
-        borderWidth: StyleSheet.hairlineWidth,
+        borderWidth: 0,
         borderColor: t.border,
       }}
     >
@@ -132,7 +143,7 @@ export function Button({
         minHeight: 48,
         justifyContent: "center",
         padding: 12,
-        borderRadius: 12,
+        borderRadius: 18,
         backgroundColor: selected ? t.selected : t.button,
         borderWidth: selected ? 2 : 0,
         borderColor: t.accent,
@@ -181,7 +192,7 @@ export function Field({
           padding: 12,
           borderWidth: 1,
           borderColor: t.border,
-          borderRadius: 10,
+          borderRadius: 16,
           color: t.text,
           fontSize: 17,
         }}

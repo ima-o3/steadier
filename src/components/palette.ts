@@ -4,6 +4,8 @@ export const palette = {
   berry: "#D5A0A8",
   sunrise: "#EE9F80",
   watermelon: "#E37E7F",
-  ink: "#34302D",
-  accent: "#75434E",
+  lavender: "#EDE9FC",
+  lilac: "#DCD4F8",
+  ink: "#28204F",
+  accent: "#6550B5",
 };

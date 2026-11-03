@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Alert } from "react-native";
 import * as Crypto from "expo-crypto";
+import { TodayOverview } from "../src/components/TodayOverview";
 import { Heatmap } from "../src/components/Heatmap";
 import { Rating } from "../src/components/Rating";
 import { resetDay } from "../src/features/planner/resetDay";
@@ -308,7 +309,8 @@ export default function Today() {
     }
   };
   return (
-    <Page>
+    <Page title="Today">
+      <TodayOverview />
       {s.demo && (
         <Copy small>
           DEMO DATA · Examples are stored locally. Clear demo data in Settings

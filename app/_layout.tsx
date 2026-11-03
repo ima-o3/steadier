@@ -5,6 +5,7 @@ import { Text, View } from "react-native";
 import type { ErrorBoundaryProps } from "expo-router";
 import { AppState } from "../src/components/AppState";
 import { useTheme } from "../src/components/ui";
+import { TabIcon } from "../src/components/TabIcon";
 function Navigation() {
   const t = useTheme();
   return (
@@ -13,14 +14,42 @@ function Navigation() {
         headerShown: false,
         tabBarActiveTintColor: t.accent,
         tabBarInactiveTintColor: t.muted,
-        tabBarStyle: { backgroundColor: t.card },
-        tabBarLabelStyle: { fontSize: 13 },
+        tabBarStyle: {
+          backgroundColor: t.card,
+          borderTopColor: t.border,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: "Today" }} />
-      <Tabs.Screen name="goals/index" options={{ title: "Goals" }} />
-      <Tabs.Screen name="insights/index" options={{ title: "Insights" }} />
-      <Tabs.Screen name="settings/index" options={{ title: "Settings" }} />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Today",
+          tabBarIcon: ({ color }) => <TabIcon name="today" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="goals/index"
+        options={{
+          title: "Goals",
+          tabBarIcon: ({ color }) => <TabIcon name="goals" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="insights/index"
+        options={{
+          title: "Insights",
+          tabBarIcon: ({ color }) => <TabIcon name="insights" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings/index"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color }) => <TabIcon name="settings" color={color} />,
+        }}
+      />
     </Tabs>
   );
 }
