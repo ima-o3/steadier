@@ -9,6 +9,7 @@ import { localDate } from "../utils/time";
 jest.setTimeout(20000);
 
 jest.mock("../components/AppState", () => ({ useStore: jest.fn() }));
+jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
 jest.mock("expo-crypto", () => ({ randomUUID: () => "checkin-id" }));
 
 const initial: State = {

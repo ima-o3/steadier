@@ -1,50 +1,192 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   Alert,
+  Image,
   Pressable,
   Text,
   View,
   useWindowDimensions,
 } from "react-native";
 import { useStore } from "./AppState";
-import { Button, Copy, useTheme } from "./ui";
-import { localDate, nextDate } from "../utils/time";
-import { indicator } from "../engines/patternDetector";
+import { useTheme } from "./ui";
+import { localDate } from "../utils/time";
+import { indicator, detectPatterns } from "../engines/patternDetector";
+import { PlanItem } from "../types";
 
-export function TodayOverview({ onCheckin }: { onCheckin?: () => void }) {
+type Props = {
+  onCheckin: () => void;
+  onPlan: () => void;
+  onEasier: () => void;
+  onCalendar: () => void;
+  onSettings: () => void;
+  onComplete: (item: PlanItem) => void;
+};
+export function TodayOverview({
+  onCheckin,
+  onPlan,
+  onEasier,
+  onCalendar,
+  onSettings,
+  onComplete,
+}: Props) {
   const { state } = useStore();
   const t = useTheme();
   const today = localDate(state.preferences.zone);
-  const [selected, setSelected] = useState(today);
-  const [history, setHistory] = useState(false);
-  const date =
-    selected > today || selected < nextDate(today, -6) ? today : selected;
-  const check = state.checkins.find((c) => c.date === date);
+  const check = state.checkins.find((c) => c.date === today);
   const score = indicator(check);
-  const days = Array.from({ length: 7 }, (_, i) => nextDate(today, i - 6));
-  const size = Math.min(280, useWindowDimensions().width - 48);
-  const radius = size * 0.4;
-  const stroke = size * 0.105;
-  const colors = ["#F4DA6F", "#C7B9E9", "#F0B6D9", "#B7CEE9"];
+  const month = today.slice(0, 7);
+  const dayCount = new Date(
+    Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5)), 0),
+  ).getUTCDate();
+  const days = Array.from(
+    { length: dayCount },
+    (_, i) => `${month}-${String(i + 1).padStart(2, "0")}`,
+  );
+  const recorded = state.checkins.filter(
+    (c) => c.date.startsWith(month) && c.date <= today && c.mood !== undefined,
+  ).length;
+  const items = state.plans[today] || [];
+  const pattern = state.preferences.patterns
+    ? detectPatterns(state.checkins, today)
+    : undefined;
+  const size = Math.min(258, useWindowDimensions().width - 64);
+  const radius = size * 0.4,
+    stroke = size * 0.13;
+  const colors = [
+    "#FFE39B",
+    "#C9DAB7",
+    "#F4C8E1",
+    "#C4CCFA",
+    "#D5DEB7",
+    "#D8C4F7",
+  ];
+  const symbols = ["☼", "☾", "♡", "↔", "♧", "✧"];
+  const action = (label: string, onPress: () => void, primary = false) => (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={{
+        minHeight: 44,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        justifyContent: "center",
+        borderRadius: 24,
+        backgroundColor: primary ? t.accent : t.button,
+      }}
+    >
+      <Text
+        style={{
+          color: primary ? t.onAccent : t.text,
+          fontSize: 13,
+          fontWeight: "600",
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
   return (
-    <View style={{ gap: 16 }}>
+    <View style={{ gap: 13 }}>
       <View
         style={{
           flexDirection: "row",
-          justifyContent: "space-between",
           alignItems: "center",
+          justifyContent: "space-between",
         }}
       >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Image
+            source={require("../../assets/icon.png")}
+            style={{ width: 30, height: 30, borderRadius: 10 }}
+          />
+          <Text style={{ color: t.accent, fontSize: 21, fontWeight: "700" }}>
+            Steadier
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open settings"
+          onPress={onSettings}
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: t.card,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ color: t.accent, fontSize: 24 }}>☷</Text>
+        </Pressable>
+      </View>
+      <View>
         <Text
           accessibilityRole="header"
-          style={{ color: t.text, fontSize: 22, fontWeight: "700" }}
+          style={{
+            color: t.text,
+            fontSize: 32,
+            fontWeight: "800",
+            letterSpacing: -0.8,
+          }}
         >
-          Steadier
+          Today
         </Text>
-        <Text style={{ color: t.muted, fontSize: 14 }}>
-          {date === today ? "Today" : date}
+        <Text style={{ color: t.muted, fontSize: 17 }}>
+          A gentle plan for your day
         </Text>
       </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Your mood this month: ${recorded} recorded days. Open calendar`}
+        onPress={onCalendar}
+        style={{
+          backgroundColor: t.card,
+          borderRadius: 22,
+          padding: 14,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 14,
+          minHeight: 64,
+        }}
+      >
+        <Text style={{ color: t.muted, width: 65, fontSize: 12 }}>
+          Your mood{"\n"}this month
+        </Text>
+        <View style={{ flex: 1, gap: 4 }}>
+          <View
+            style={{ flexDirection: "row", justifyContent: "space-between" }}
+          >
+            {[1, 7, 14, 21, dayCount].map((day) => (
+              <Text key={day} style={{ color: t.muted, fontSize: 10 }}>
+                {day}
+              </Text>
+            ))}
+          </View>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 3 }}>
+            {days.map((day) => {
+              const mood = state.checkins.find((c) => c.date === day)?.mood;
+              return (
+                <View
+                  key={day}
+                  style={{
+                    width: "5%",
+                    aspectRatio: 1,
+                    borderRadius: 3,
+                    backgroundColor:
+                      day <= today && mood !== undefined ? t.accent : t.button,
+                    opacity:
+                      day > today
+                        ? 0.35
+                        : mood === undefined
+                          ? 1
+                          : 0.25 + mood * 0.075,
+                  }}
+                />
+              );
+            })}
+          </View>
+        </View>
+      </Pressable>
       <View
         style={{
           width: size,
@@ -61,9 +203,9 @@ export function TodayOverview({ onCheckin }: { onCheckin?: () => void }) {
           style={{ position: "absolute", width: size, height: size }}
         >
           {colors.flatMap((color, segment) =>
-            Array.from({ length: 32 }, (_, i) => {
+            Array.from({ length: 24 }, (_, i) => {
               const angle =
-                ((segment * 90 - 78 + (i * 65) / 31) * Math.PI) / 180;
+                ((segment * 60 - 100 + (i * 36) / 23) * Math.PI) / 180;
               return (
                 <View
                   key={`${segment}-${i}`}
@@ -80,177 +222,184 @@ export function TodayOverview({ onCheckin }: { onCheckin?: () => void }) {
               );
             }),
           )}
+          {symbols.map((symbol, i) => {
+            const angle = ((i * 60 - 82) * Math.PI) / 180;
+            return (
+              <Text
+                key={i}
+                style={{
+                  position: "absolute",
+                  width: 32,
+                  height: 32,
+                  textAlign: "center",
+                  fontSize: 25,
+                  color: "#55446F",
+                  left: size / 2 + radius * Math.cos(angle) - 16,
+                  top: size / 2 + radius * Math.sin(angle) - 16,
+                }}
+              >
+                {symbol}
+              </Text>
+            );
+          })}
         </View>
         <Text
           accessibilityLabel={`Wellbeing summary: ${score ? `${score.value.toFixed(1)} out of 10` : "not recorded"}`}
           style={{
             color: t.text,
-            fontSize: 68,
-            fontWeight: "600",
-            letterSpacing: -3,
+            fontSize: 62,
+            fontWeight: "800",
+            letterSpacing: -2,
           }}
         >
           {score?.value.toFixed(1) ?? "—"}
         </Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="About your wellbeing score"
+          accessibilityLabel="About today's steadiness"
           onPress={() =>
             Alert.alert(
-              "Your wellbeing",
+              "Today’s steadiness",
               score?.explanation ??
-                "Record mood or energy to see your personal wellbeing summary. Missing observations stay missing.",
+                "Record mood or energy to see your personal summary. Missing observations stay missing.",
             )
           }
           style={{ minHeight: 44, justifyContent: "center" }}
         >
-          <Text style={{ color: t.muted, fontSize: 14 }}>
-            {score ? "your wellbeing · ⓘ" : "no check-in yet · ⓘ"}
+          <Text style={{ color: t.muted, fontSize: 13 }}>
+            {score ? "today’s steadiness ⓘ" : "no check-in yet ⓘ"}
           </Text>
         </Pressable>
       </View>
-      <Pressable
-        accessibilityRole="button"
-        onPress={onCheckin}
-        style={{
-          alignSelf: "center",
-          minHeight: 48,
-          paddingHorizontal: 26,
-          justifyContent: "center",
-          borderRadius: 26,
-          backgroundColor: "#242424",
-        }}
-      >
-        <Text style={{ color: "#FFFFFF", fontWeight: "600", fontSize: 16 }}>
-          Check in today
-        </Text>
-      </Pressable>
       <View
         style={{
-          backgroundColor: "#F1BCDC",
-          borderRadius: 24,
-          padding: 20,
-          gap: 8,
+          flexDirection: "row",
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+          gap: 6,
         }}
       >
-        <Text style={{ color: "#493647", fontSize: 13 }}>
-          A moment for yourself
-        </Text>
-        <Text
+        {action("Plan my day", onPlan, true)}
+        {action("Check in", onCheckin)}
+        {action("Make it easier", onEasier)}
+      </View>
+      <View
+        style={{
+          backgroundColor: t.selected,
+          borderRadius: 25,
+          padding: 18,
+          gap: 10,
+          overflow: "hidden",
+        }}
+      >
+        <View
+          pointerEvents="none"
           style={{
-            color: "#282326",
-            fontSize: 20,
-            lineHeight: 27,
-            fontWeight: "600",
+            position: "absolute",
+            width: 150,
+            height: 150,
+            borderRadius: 75,
+            backgroundColor: t.button,
+            right: -55,
+            bottom: -90,
           }}
+        />
+        <Text style={{ color: t.accent, fontSize: 12, fontWeight: "700" }}>
+          ✦ INSIGHT FOR YOU
+        </Text>
+        <Text style={{ color: t.text, fontSize: 16, lineHeight: 23 }}>
+          {pattern?.sufficient
+            ? pattern.text
+            : check?.energy !== undefined && check.energy <= 3
+              ? "You’ve recorded low energy today. Would a gentler plan help?"
+              : "Small steps count. Choose a plan that leaves room for rest."}
+        </Text>
+        <View style={{ alignSelf: "flex-start" }}>
+          {action("See suggestions →", onEasier, true)}
+        </View>
+      </View>
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Text
+          accessibilityRole="header"
+          style={{ color: t.text, fontSize: 23, fontWeight: "700" }}
         >
-          {score
-            ? "There’s room to take today at your own pace."
-            : "Start where you are. One small check-in is enough."}
+          Today’s plan
+        </Text>
+        <Text style={{ color: t.muted, fontSize: 13 }}>
+          {items.length} {items.length === 1 ? "item" : "items"}
         </Text>
       </View>
-      <Text
-        accessibilityRole="header"
-        style={{ color: t.text, fontSize: 22, fontWeight: "700" }}
-      >
-        Your wellbeing
-      </Text>
-      {(
-        [
-          ["Mood", check?.mood, "/ 10", colors[2]],
-          ["Energy", check?.energy, "/ 10", colors[0]],
-          ["Sleep", check?.sleepHours, "hours", colors[3]],
-        ] as const
-      ).map(([label, value, unit, color]) => (
-        <View key={label} style={{ gap: 8 }}>
+      {!items.length && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onPlan}
+          style={{ backgroundColor: t.card, borderRadius: 20, padding: 18 }}
+        >
+          <Text style={{ color: t.text, fontSize: 15 }}>
+            A little room to begin.
+          </Text>
+          <Text style={{ color: t.accent, marginTop: 6 }}>
+            Choose your plan →
+          </Text>
+        </Pressable>
+      )}
+      {items.slice(0, 3).map((item) => (
+        <Pressable
+          key={item.id}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: item.completed }}
+          accessibilityLabel={`${item.title}, ${item.completed ? "completed" : "not completed"}`}
+          onPress={() => onComplete(item)}
+          style={{
+            flexDirection: "row",
+            gap: 12,
+            alignItems: "center",
+            backgroundColor: t.card,
+            padding: 14,
+            borderRadius: 20,
+          }}
+        >
           <View
             style={{
-              flexDirection: "row",
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              backgroundColor: t.button,
               alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
+              justifyContent: "center",
             }}
           >
-            <Text style={{ color: t.text, fontSize: 16, fontWeight: "600" }}>
-              {label}
+            <Text style={{ color: t.accent, fontSize: 21 }}>
+              {item.kind === "habit" ? "♧" : "◇"}
             </Text>
+          </View>
+          <View style={{ flex: 1 }}>
             <Text
-              accessibilityLabel={`${label} summary: ${value === undefined ? "not recorded" : `${value} ${unit}`}`}
-              style={{ color: t.text, fontSize: 16 }}
+              style={{
+                color: t.text,
+                fontWeight: "700",
+                fontSize: 15,
+                textDecorationLine: item.completed ? "line-through" : "none",
+              }}
             >
-              {value === undefined ? "Not recorded" : `${value} ${unit}`}
+              {item.title}
+            </Text>
+            <Text style={{ color: t.muted, fontSize: 12, marginTop: 3 }}>
+              {item.kind === "habit" ? "Small routine" : "A meaningful step"}
             </Text>
           </View>
-          {label !== "Sleep" && (
-            <View
-              accessible={false}
-              style={{ height: 9, borderRadius: 5, backgroundColor: t.button }}
-            >
-              <View
-                style={{
-                  width: `${(value ?? 0) * 10}%`,
-                  height: 9,
-                  borderRadius: 5,
-                  backgroundColor: color,
-                }}
-              />
-            </View>
-          )}
-        </View>
+          <Text style={{ color: t.accent, fontSize: 25 }}>
+            {item.completed ? "✓" : "○"}
+          </Text>
+        </Pressable>
       ))}
-      <Button
-        title={history ? "Hide recent check-ins" : "Recent check-ins"}
-        onPress={() => {
-          setHistory(!history);
-          if (history) setSelected(today);
-        }}
-      />
-      {history && (
-        <>
-          <View style={{ flexDirection: "row", gap: 4 }}>
-            {days.map((day) => {
-              const recorded = state.checkins.some(
-                (c) =>
-                  c.date === day &&
-                  (c.mood !== undefined || c.energy !== undefined),
-              );
-              return (
-                <Pressable
-                  key={day}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${day}, ${recorded ? "check-in recorded" : "no mood or energy recorded"}`}
-                  accessibilityState={{ selected: day === date }}
-                  onPress={() => setSelected(day)}
-                  style={{
-                    flex: 1,
-                    minHeight: 60,
-                    borderRadius: 16,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 6,
-                    backgroundColor: day === date ? t.selected : t.button,
-                  }}
-                >
-                  <Text style={{ color: t.text }}>{Number(day.slice(-2))}</Text>
-                  <View
-                    style={{
-                      width: 5,
-                      height: 5,
-                      borderRadius: 3,
-                      backgroundColor: recorded ? t.accent : "transparent",
-                    }}
-                  />
-                </Pressable>
-              );
-            })}
-          </View>
-          <Copy small>
-            {date === today
-              ? "Today’s observations"
-              : `Observations for ${date}`}
-          </Copy>
-        </>
-      )}
+      {items.length > 3 && action("View full plan", onPlan)}
     </View>
   );
 }

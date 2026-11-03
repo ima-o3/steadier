@@ -6,7 +6,7 @@ export function TabIcon({
   name,
   color,
 }: {
-  name: "today" | "goals" | "insights" | "settings";
+  name: "today" | "goals" | "insights" | "settings" | "calendar";
   color: ColorValue;
 }) {
   const outline = { borderColor: color, borderWidth: 2 };
@@ -21,6 +21,13 @@ export function TabIcon({
         justifyContent: "center",
       }}
     >
+      {name === "calendar" && (
+        <View style={{ ...outline, width: 23, height: 21, borderRadius: 4 }}>
+          <View
+            style={{ height: 6, borderBottomWidth: 2, borderColor: color }}
+          />
+        </View>
+      )}
       {name === "today" && (
         <View
           style={{

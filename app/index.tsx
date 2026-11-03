@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
+import { useRouter } from "expo-router";
 import * as Crypto from "expo-crypto";
 import { TodayOverview } from "../src/components/TodayOverview";
 import { Heatmap } from "../src/components/Heatmap";
@@ -49,6 +50,7 @@ const dayChoices: Record<Mode, { title: string; description: string }> = {
   },
 };
 export default function Today() {
+  const router = useRouter();
   const { state: s, update } = useStore(),
     date = localDate(s.preferences.zone),
     check = s.checkins.find((c) => c.date === date);
@@ -70,6 +72,9 @@ export default function Today() {
   const checkinRequest = useRef(0);
   const pageRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const checkinY = useRef(0);
+  const plannerY = useRef(0);
+  const showPlanner = () =>
+    pageRef.current?.scrollTo({ y: plannerY.current, animated: true });
   const items = s.plans[date] || [];
   const feasibility = assessGoals(
     s.goals,
@@ -300,6 +305,14 @@ export default function Today() {
   return (
     <Page scrollRef={pageRef}>
       <TodayOverview
+        onPlan={showPlanner}
+        onEasier={() => {
+          setMode("recovery");
+          showPlanner();
+        }}
+        onCalendar={() => router.push("/calendar")}
+        onSettings={() => router.push("/settings")}
+        onComplete={(item) => changeItem(item, { completed: !item.completed })}
         onCheckin={() =>
           pageRef.current?.scrollTo({ y: checkinY.current, animated: true })
         }
@@ -398,46 +411,52 @@ export default function Today() {
         </Card>
       </View>
       <Heatmap />
-      <Card>
-        <Heading>Plan your day</Heading>
-        <Copy>How much do you want to take on?</Copy>
-        <Copy small>
-          Suggested: {dayChoices[recommendMode(check?.energy)].title} based on{" "}
-          {check?.energy === undefined
-            ? "no energy data; a neutral default"
-            : `reported energy ${check.energy}/10`}
-          . You can choose any option.
-        </Copy>
-        <Row>
-          {(["recovery", "steady", "momentum"] as Mode[]).map((m) => (
-            <Button
-              key={m}
-              title={dayChoices[m].title}
-              selected={mode === m}
-              onPress={() => setMode(m)}
-            />
-          ))}
-        </Row>
-        <Copy>{dayChoices[mode].description}</Copy>
-        <Copy small>
-          Choosing an option changes the next generated plan. Pinned and
-          completed items stay when regenerating.
-        </Copy>
-        <Button
-          title={s.planMeta?.[date] ? "Regenerate my day" : "Generate my day"}
-          onPress={() => generate()}
-        />
-        {(!!s.planMeta?.[date] || items.some((item) => !item.completed)) && (
-          <Button title="Reset today’s plan" onPress={resetPlan} />
-        )}
-        <Copy small>{explanation}</Copy>
-        <Copy small>
-          {s.lastSync
-            ? `Calendar last synced ${new Date(s.lastSync).toLocaleString("en-GB")}. Refresh in Settings before relying on availability.`
-            : "Google Calendar is not synced. Availability may be incomplete; add manual commitments in Settings."}
-          {s.calendarError ? ` ${s.calendarError}` : ""}
-        </Copy>
-      </Card>
+      <View
+        onLayout={(event) => {
+          plannerY.current = event.nativeEvent.layout.y;
+        }}
+      >
+        <Card>
+          <Heading>Plan your day</Heading>
+          <Copy>How much do you want to take on?</Copy>
+          <Copy small>
+            Suggested: {dayChoices[recommendMode(check?.energy)].title} based on{" "}
+            {check?.energy === undefined
+              ? "no energy data; a neutral default"
+              : `reported energy ${check.energy}/10`}
+            . You can choose any option.
+          </Copy>
+          <Row>
+            {(["recovery", "steady", "momentum"] as Mode[]).map((m) => (
+              <Button
+                key={m}
+                title={dayChoices[m].title}
+                selected={mode === m}
+                onPress={() => setMode(m)}
+              />
+            ))}
+          </Row>
+          <Copy>{dayChoices[mode].description}</Copy>
+          <Copy small>
+            Choosing an option changes the next generated plan. Pinned and
+            completed items stay when regenerating.
+          </Copy>
+          <Button
+            title={s.planMeta?.[date] ? "Regenerate my day" : "Generate my day"}
+            onPress={() => generate()}
+          />
+          {(!!s.planMeta?.[date] || items.some((item) => !item.completed)) && (
+            <Button title="Reset today’s plan" onPress={resetPlan} />
+          )}
+          <Copy small>{explanation}</Copy>
+          <Copy small>
+            {s.lastSync
+              ? `Calendar last synced ${new Date(s.lastSync).toLocaleString("en-GB")}. Refresh in Settings before relying on availability.`
+              : "Google Calendar is not synced. Availability may be incomplete; add manual commitments in Settings."}
+            {s.calendarError ? ` ${s.calendarError}` : ""}
+          </Copy>
+        </Card>
+      </View>
       <Card>
         <Heading>Room for your goals</Heading>
         <Copy>{feasibility.status}</Copy>

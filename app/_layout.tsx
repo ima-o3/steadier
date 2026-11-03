@@ -12,11 +12,11 @@ function Navigation() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#F5B9DB",
-        tabBarInactiveTintColor: "#C9C5CB",
+        tabBarActiveTintColor: t.accent,
+        tabBarInactiveTintColor: t.muted,
         tabBarStyle: {
-          backgroundColor: "#242424",
-          borderTopColor: "#242424",
+          backgroundColor: t.card,
+          borderTopColor: t.border,
           borderTopLeftRadius: 26,
           borderTopRightRadius: 26,
           paddingTop: 8,
@@ -43,6 +43,13 @@ function Navigation() {
         options={{
           title: "Insights",
           tabBarIcon: ({ color }) => <TabIcon name="insights" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="calendar/index"
+        options={{
+          title: "Calendar",
+          tabBarIcon: ({ color }) => <TabIcon name="calendar" color={color} />,
         }}
       />
       <Tabs.Screen
