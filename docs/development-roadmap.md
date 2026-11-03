@@ -1,6 +1,6 @@
 # Implementation status
 
-This is an implemented personal MVP foundation. The source runs through type checking, engine/persistence tests, native component testing and iOS Hermes bundling. A cloud IPA and physical-device validation are still external prerequisites.
+This is an implemented personal MVP foundation. The source runs through type checking, engine/persistence tests, native component testing and iOS Hermes bundling. The Windows sideload workflow has also successfully compiled the unsigned native iPhone Release app on GitHub's Mac runner. See the [sideload guide](windows-sideload-guide.md) for packaging, installation and refresh steps. Physical-device validation is still required.
 
 | Phase | Implemented                                                                                                                                                          | Remaining / release gate                                                                              |
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |

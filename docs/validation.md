@@ -15,4 +15,12 @@ Automated checks cover:
 
 Final checks on 2 November 2026: **61 core tests passed across 9 files; 1 React Native component test passed; strict TypeScript passed; frozen offline install passed; no peer dependency issues; final iOS Hermes bundle export passed (3.2 MB).** Resolved public config confirms SQLCipher is enabled. Jest uses `--forceExit` because the Expo test runtime retains open handles; this is a test-runner limitation, not device-runtime verification.
 
+On the Windows sideload route, GitHub Actions also passed the checks on a macOS runner. Xcode successfully compiled an unsigned arm64 iPhone Release app, verified the generated SQLCipher compiler setting, and embedded the Hermes bundle. IPA packaging and installation status is recorded in the sideload build note below. The initial attempts exposed two build-script checks that were corrected: verification of compiler flags through generated xcconfig rather than console text, and lipo's argument order.
+
 No screenshot-based native visual QA, iOS simulator session, EAS cloud build, Google account login, TestFlight submission or physical iPhone test has occurred.
+
+## Successful unsigned sideload build
+
+GitHub Actions [run 41535186026](https://github.com/ima-o3/steadier/actions/runs/41535186026) successfully compiled and packaged source commit `bc506a9cf6551f660a7e5197fb450e4bf466827d`. The downloaded artifact is `build/sideload/Steadier-unsigned.ipa` (12,027,854 bytes), version 0.1.0, bundle identifier `com.ima03.steadier`, minimum iOS 16.4. Its SHA-256 was verified after download: `2a328616f64c197da2877d202be9db6c295c9f1c0f961c1c8e9344229f450785`.
+
+Sideloadly detects the connected iPhone. File selection, Apple authentication, signing and installation remain pending; no successful launch or native encryption verification on the phone is claimed.
