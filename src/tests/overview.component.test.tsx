@@ -60,7 +60,7 @@ test("dashboard uses actual observations and tasks and wires all quick actions",
   await fireEvent.press(screen.getByText("Make it easier"));
   await fireEvent.press(
     screen.getByLabelText(
-      "Your mood this month: 1 recorded days. Open calendar",
+      "Your wellbeing this month: 1 recorded days. Open calendar",
     ),
   );
   await fireEvent.press(screen.getByLabelText("My own task, not completed"));
@@ -71,12 +71,10 @@ test("dashboard uses actual observations and tasks and wires all quick actions",
   expect(actions.onComplete).toHaveBeenCalledWith(task);
 });
 test("empty dashboard shows missing data and does not invent tasks or energy trends", async () => {
-  jest
-    .mocked(useStore)
-    .mockReturnValue({
-      state: { ...state, checkins: [], plans: {} },
-      update: jest.fn(),
-    });
+  jest.mocked(useStore).mockReturnValue({
+    state: { ...state, checkins: [], plans: {} },
+    update: jest.fn(),
+  });
   await render(<TodayOverview {...handlers()} />);
   expect(screen.getByLabelText("Wellbeing summary: not recorded")).toBeTruthy();
   expect(screen.getByText("0 items")).toBeTruthy();

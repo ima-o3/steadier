@@ -1,3 +1,4 @@
+import { syncCalendars } from "../integrations/googleCalendar/client";
 import React, { useState } from "react";
 import { Alert } from "react-native";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
@@ -41,17 +42,18 @@ function Harness({ state = initial }: { state?: State }) {
   });
   return <Today />;
 }
+jest.mock("../integrations/googleCalendar/client", () => ({
+  syncCalendars: jest.fn(),
+}));
+
 afterEach(() => jest.restoreAllMocks());
 
 test("tapping mood and energy updates today's wellbeing immediately and preserves both scores", async () => {
   await render(<Harness />);
   await fireEvent.press(screen.getByLabelText("Energy 4 out of 10"));
   await fireEvent.press(screen.getByLabelText("Mood 8 out of 10"));
-  expect(screen.getByText("Today · 6.0/10")).toBeTruthy();
   expect(
-    screen.getByLabelText(
-      `${localDate(prefs.zone)}: 6.0 out of 10, self-reported mood and energy`,
-    ),
+    screen.getByLabelText("Wellbeing summary: 6.0 out of 10"),
   ).toBeTruthy();
   expect(latest.checkins).toHaveLength(1);
   expect(latest.checkins[0]).toMatchObject({ energy: 4, mood: 8 });
@@ -121,4 +123,39 @@ test("day choices explain their workload and selection does not generate a plan"
   await fireEvent.press(screen.getByText("A fuller day"));
   expect(screen.getByText(/Up to 4 goal tasks/)).toBeTruthy();
   expect(latest.plans).toEqual({});
+});
+
+test("generating refreshes selected calendars and retains manual commitments", async () => {
+  const date = localDate(prefs.zone);
+  const manual = {
+    id: "manual",
+    title: "Appointment",
+    source: "manual" as const,
+    busy: true,
+    start: `${date}T14:00:00Z`,
+    end: `${date}T15:00:00Z`,
+  };
+  const google = { ...manual, id: "google", source: "google" as const };
+  jest.mocked(syncCalendars).mockResolvedValue([google]);
+  await render(
+    <Harness
+      state={{ ...initial, calendarIds: ["selected"], commitments: [manual] }}
+    />,
+  );
+  await fireEvent.press(
+    screen.getByRole("button", { name: "Generate my day" }),
+  );
+  expect(syncCalendars).toHaveBeenCalledWith(["selected"], date, prefs.zone);
+  expect(latest.commitments).toEqual([manual, google]);
+  expect(latest.lastSync).toBeTruthy();
+});
+test("offline generation retains cached availability and reports fallback", async () => {
+  jest.mocked(syncCalendars).mockRejectedValue(new Error("Offline"));
+  await render(<Harness state={{ ...initial, calendarIds: ["selected"] }} />);
+  await fireEvent.press(
+    screen.getByRole("button", { name: "Generate my day" }),
+  );
+  expect(latest.commitments).toEqual(initial.commitments);
+  expect(latest.calendarError).toContain("Using saved availability");
+  expect(latest.planMeta?.[localDate(prefs.zone)]).toBeDefined();
 });

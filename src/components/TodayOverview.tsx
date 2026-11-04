@@ -43,13 +43,14 @@ export function TodayOverview({
     (_, i) => `${month}-${String(i + 1).padStart(2, "0")}`,
   );
   const recorded = state.checkins.filter(
-    (c) => c.date.startsWith(month) && c.date <= today && c.mood !== undefined,
+    (c) =>
+      c.date.startsWith(month) && c.date <= today && indicator(c) !== undefined,
   ).length;
   const items = state.plans[today] || [];
   const pattern = state.preferences.patterns
     ? detectPatterns(state.checkins, today)
     : undefined;
-  const size = Math.min(258, useWindowDimensions().width - 64);
+  const size = Math.min(222, useWindowDimensions().width - 64);
   const radius = size * 0.4,
     stroke = size * 0.13;
   const colors = [
@@ -137,7 +138,7 @@ export function TodayOverview({
       </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Your mood this month: ${recorded} recorded days. Open calendar`}
+        accessibilityLabel={`Your wellbeing this month: ${recorded} recorded days. Open calendar`}
         onPress={onCalendar}
         style={{
           backgroundColor: t.card,
@@ -150,41 +151,45 @@ export function TodayOverview({
         }}
       >
         <Text style={{ color: t.muted, width: 65, fontSize: 12 }}>
-          Your mood{"\n"}this month
+          Wellbeing{"\n"}this month
         </Text>
         <View style={{ flex: 1, gap: 4 }}>
-          <View
-            style={{ flexDirection: "row", justifyContent: "space-between" }}
-          >
-            {[1, 7, 14, 21, dayCount].map((day) => (
-              <Text key={day} style={{ color: t.muted, fontSize: 10 }}>
-                {day}
-              </Text>
-            ))}
-          </View>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 3 }}>
-            {days.map((day) => {
-              const mood = state.checkins.find((c) => c.date === day)?.mood;
-              return (
-                <View
-                  key={day}
-                  style={{
-                    width: "5%",
-                    aspectRatio: 1,
-                    borderRadius: 3,
-                    backgroundColor:
-                      day <= today && mood !== undefined ? t.accent : t.button,
-                    opacity:
-                      day > today
-                        ? 0.35
-                        : mood === undefined
-                          ? 1
-                          : 0.25 + mood * 0.075,
-                  }}
-                />
-              );
-            })}
-          </View>
+          <Text style={{ color: t.muted, fontSize: 10 }}>
+            Days 1–{dayCount} · open calendar
+          </Text>
+          {[days.slice(0, 16), days.slice(16)].map((row, index) => (
+            <View key={index} style={{ flexDirection: "row", gap: 3 }}>
+              {row.map((day) => {
+                const value = indicator(
+                  state.checkins.find((c) => c.date === day),
+                )?.value;
+                return (
+                  <View
+                    key={day}
+                    style={{
+                      flex: 1,
+                      height: 12,
+                      borderRadius: 3,
+                      backgroundColor:
+                        day <= today && value !== undefined
+                          ? t.accent
+                          : t.button,
+                      opacity:
+                        day > today
+                          ? 0.35
+                          : value === undefined
+                            ? 1
+                            : 0.25 + value * 0.075,
+                    }}
+                  />
+                );
+              })}
+              {index === 1 &&
+                Array.from({ length: 32 - dayCount }, (_, i) => (
+                  <View key={`empty-${i}`} style={{ flex: 1 }} />
+                ))}
+            </View>
+          ))}
         </View>
       </Pressable>
       <View
@@ -247,7 +252,7 @@ export function TodayOverview({
           accessibilityLabel={`Wellbeing summary: ${score ? `${score.value.toFixed(1)} out of 10` : "not recorded"}`}
           style={{
             color: t.text,
-            fontSize: 62,
+            fontSize: 54,
             fontWeight: "800",
             letterSpacing: -2,
           }}
@@ -309,13 +314,13 @@ export function TodayOverview({
         </Text>
         <Text style={{ color: t.text, fontSize: 16, lineHeight: 23 }}>
           {pattern?.sufficient
-            ? pattern.text
+            ? pattern.text.split(". ")[0] + "."
             : check?.energy !== undefined && check.energy <= 3
               ? "You’ve recorded low energy today. Would a gentler plan help?"
               : "Small steps count. Choose a plan that leaves room for rest."}
         </Text>
         <View style={{ alignSelf: "flex-start" }}>
-          {action("See suggestions →", onEasier, true)}
+          {action("See suggestions →", onPlan, true)}
         </View>
       </View>
       <View

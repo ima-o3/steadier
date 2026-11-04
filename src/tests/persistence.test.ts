@@ -260,3 +260,49 @@ it("deleting milestones keeps actions and deleting actions clears dependencies t
   expect(withoutAction.actions[0]?.dependencies).toEqual([]);
   expect(withoutAction.goals).toEqual([goal]);
 });
+
+it("v0.1.7 schema records survive reopening and simulator changes without losing history", async () => {
+  const { applySimulation, emptySimulation } =
+    await import("../features/goals/simulation");
+  await openStore();
+  const oldState = {
+    ...defaultState,
+    goals: [{ ...goal, status: "paused" as const }],
+    actions: [{ ...action, milestoneId: "m" }],
+    milestones: [
+      { id: "m", goalId: goal.id, name: "Existing milestone", completed: true },
+    ],
+    checkins: [{ id: "old-check", date, mood: 6, energy: 4 }],
+    plans: {
+      [date]: [
+        {
+          id: "history",
+          title: "Finished",
+          start: `${date}T09:00:00Z`,
+          end: `${date}T09:05:00Z`,
+          kind: "task" as const,
+          effort: 1,
+          variant: 0,
+          locked: true,
+          completed: true,
+        },
+      ],
+    },
+  };
+  await saveState(oldState);
+  const key = memory.key;
+  const restored = await openStore();
+  await saveState(
+    applySimulation(restored, {
+      ...emptySimulation(),
+      changes: { g: { priority: 2 } },
+    }),
+  );
+  const upgraded = await openStore();
+  expect(upgraded.goals[0]).toMatchObject({ status: "paused", priority: 2 });
+  expect(upgraded.actions).toEqual(oldState.actions);
+  expect(upgraded.milestones).toEqual(oldState.milestones);
+  expect(upgraded.checkins).toEqual(oldState.checkins);
+  expect(upgraded.plans).toEqual(oldState.plans);
+  expect(memory.key).toBe(key);
+});

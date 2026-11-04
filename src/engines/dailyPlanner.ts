@@ -9,7 +9,7 @@ import {
 } from "../types";
 import { freeWindows, freeMinutes } from "./capacityModel";
 import { addMinutes, duration } from "../utils/time";
-export const PLANNER_VERSION = "planner-1";
+export const PLANNER_VERSION = "planner-2";
 export const recommendMode = (energy?: number): Mode =>
   energy === undefined
     ? "steady"
@@ -25,6 +25,8 @@ export function planDay(input: {
   actions: Action[];
   goals: Goal[];
   mode: Mode;
+  energy?: number;
+  overloaded?: boolean;
   habits?: Habit[];
   existing?: PlanItem[];
   now?: string;
@@ -60,7 +62,8 @@ export function planDay(input: {
     .filter((w) => w.start < w.end);
   let budget = Math.floor(
     freeMinutes(windows) *
-      { recovery: 0.2, steady: 0.45, momentum: 0.65 }[mode],
+      { recovery: 0.2, steady: 0.45, momentum: 0.65 }[mode] *
+      (input.energy !== undefined && input.energy <= 3 ? 0.8 : 1),
   );
   let count = 0;
   const items: PlanItem[] = [...locked];
@@ -124,12 +127,12 @@ export function planDay(input: {
   // Reserve a modest wellbeing routine before goal work, without filling every gap.
   for (const h of (input.habits || []).slice(0, 1))
     place(
-      h.name,
+      mode === "recovery" && h.minimum ? h.minimum : h.name,
       mode === "recovery" ? Math.min(h.minutes, 5) : h.minutes,
       1,
       "habit",
       h.id,
-      0,
+      mode === "recovery" && h.minimum ? 1 : 0,
     );
   for (const a of candidates) {
     if (count >= { recovery: 1, steady: 3, momentum: 4 }[mode]) break;
@@ -156,6 +159,6 @@ export function planDay(input: {
   return {
     items: items.sort((a, b) => a.start.localeCompare(b.start)),
     version: PLANNER_VERSION,
-    explanation: `${count} goal task${count === 1 ? "" : "s"} added. This plan leaves at least ${{ recovery: 80, steady: 55, momentum: 35 }[mode]}% of available time unscheduled, with ${p.buffer} minutes around appointments and protected rest.`,
+    explanation: `${input.energy !== undefined && input.energy <= 3 ? "Low reported energy reduces the time budget by 20%, while keeping your chosen mode. " : ""}${input.overloaded ? "Long-term workload needs review; today prioritises important goals without changing deadlines. " : ""}Tasks are ordered by importance, priority and deadline. ${count} goal task${count === 1 ? "" : "s"} added. This plan leaves at least ${{ recovery: 80, steady: 55, momentum: 35 }[mode]}% of available time unscheduled, with ${p.buffer} minutes around appointments and protected rest.`,
   };
 }

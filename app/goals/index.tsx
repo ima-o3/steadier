@@ -1,5 +1,6 @@
+import { palette } from "../../src/components/palette";
 import React, { useState } from "react";
-import { Alert, Modal, Text, View } from "react-native";
+import { Alert, Modal, Text, View, Pressable } from "react-native";
 import * as Crypto from "expo-crypto";
 import { useStore } from "../../src/components/AppState";
 import {
@@ -12,6 +13,9 @@ import {
   Row,
   message,
 } from "../../src/components/ui";
+import { FeasibilitySimulator } from "../../src/components/FeasibilitySimulator";
+import { GoalProgress } from "../../src/components/GoalProgress";
+import { WorkRow } from "../../src/components/WorkRow";
 import { SlideDelete } from "../../src/components/SlideDelete";
 import { WorkEditor, WorkSelection } from "../../src/components/WorkEditor";
 import {
@@ -24,6 +28,8 @@ import { assessGoals } from "../../src/engines/goalFeasibility";
 import { localDate } from "../../src/utils/time";
 export default function Goals() {
   const { state: s, update } = useStore();
+  const [selectedGoal, setSelectedGoal] = useState("");
+  const [goalStatus, setGoalStatus] = useState<Goal["status"]>("active");
   const [formVisible, setFormVisible] = useState(false);
   const [capacityVisible, setCapacityVisible] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -70,12 +76,6 @@ export default function Goals() {
       ],
     );
   }
-  function changeStatus(g: Goal, status: Goal["status"]) {
-    void update((old) => ({
-      ...old,
-      goals: old.goals.map((x) => (x.id === g.id ? { ...x, status } : x)),
-    })).catch((e) => Alert.alert("Could not move goal", message(e)));
-  }
   const report = assessGoals(
     s.goals,
     s.actions,
@@ -88,6 +88,7 @@ export default function Goals() {
   function newGoal() {
     setGoalDetails(false);
     setEditing("");
+    setGoalStatus("active");
     setName("");
     setDescription("");
     setCategory("Personal");
@@ -113,6 +114,8 @@ export default function Goals() {
             void update((old) => removeGoal(old, g.id))
               .then(() => {
                 if (work?.goalId === g.id) setWork(null);
+                setFormVisible(false);
+                setSelectedGoal("");
               })
               .catch((e) => Alert.alert("Could not remove goal", message(e)));
           },
@@ -124,6 +127,7 @@ export default function Goals() {
     setGoalDetails(false);
     setFormVisible(true);
     setEditing(g.id);
+    setGoalStatus(g.status);
     setName(g.name);
     setDescription(g.description);
     setCategory(g.category);
@@ -178,7 +182,7 @@ export default function Goals() {
         effortMax: max ? Number(max) * 60 : undefined,
         frequency: Number(frequency),
         minimumMinutes: Number(minimum),
-        status: s.goals.find((g) => g.id === id)?.status || "active",
+        status: goalStatus,
       };
       await update((old) => ({
         ...old,
@@ -195,20 +199,30 @@ export default function Goals() {
     }
   }
   return (
-    <Page title="Goals">
-      <Button title="Add goal" onPress={newGoal} />
-      <Row>
-        {(["active", "completed", "archived"] as const).map((tab) => (
-          <Button
-            key={tab}
-            title={`${tab === "active" ? "Active" : tab === "completed" ? "Completed" : "Archive"} (${s.goals.filter((g) => inSection(g, tab)).length})`}
-            selected={section === tab}
-            onPress={() => setSection(tab)}
-          />
-        ))}
-      </Row>
-      {s.goals.length > 0 && visibleGoals.length === 0 && (
-        <Copy>No goals in this section yet.</Copy>
+    <Page
+      key={selectedGoal || "overview"}
+      title={selectedGoal ? undefined : "Goals"}
+    >
+      {!!selectedGoal && (
+        <Button title="Back to goals" onPress={() => setSelectedGoal("")} />
+      )}
+      {!selectedGoal && (
+        <>
+          <Button title="Add goal" onPress={newGoal} />
+          <Row>
+            {(["active", "completed", "archived"] as const).map((tab) => (
+              <Button
+                key={tab}
+                title={`${tab === "active" ? "Active" : tab === "completed" ? "Completed" : "Archive"} (${s.goals.filter((g) => inSection(g, tab)).length})`}
+                selected={section === tab}
+                onPress={() => setSection(tab)}
+              />
+            ))}
+          </Row>
+          {s.goals.length > 0 && visibleGoals.length === 0 && (
+            <Copy>No goals in this section yet.</Copy>
+          )}
+        </>
       )}
       {work && <WorkEditor selection={work} onClose={() => setWork(null)} />}
       {s.goals.length === 0 && (
@@ -234,6 +248,35 @@ export default function Goals() {
               value={description}
               onChangeText={setDescription}
             />
+            <Field
+              label="Desired deadline YYYY-MM-DD · optional"
+              value={deadline}
+              onChangeText={setDeadline}
+            />
+            <Field
+              label="Personal importance 1–5"
+              value={importance}
+              onChangeText={setImportance}
+              numeric
+            />
+            <Field
+              label="Priority · 1 is highest"
+              value={priority}
+              onChangeText={setPriority}
+              numeric
+            />
+            <Field
+              label="Remaining hours · lower estimate"
+              value={min}
+              onChangeText={setMin}
+              numeric
+            />
+            <Field
+              label="Remaining hours · upper estimate"
+              value={max}
+              onChangeText={setMax}
+              numeric
+            />
             <Button
               title={
                 goalDetails
@@ -250,35 +293,6 @@ export default function Goals() {
                   onChangeText={setCategory}
                 />
                 <Field
-                  label="Personal importance 1–5"
-                  value={importance}
-                  onChangeText={setImportance}
-                  numeric
-                />
-                <Field
-                  label="Priority · 1 is highest"
-                  value={priority}
-                  onChangeText={setPriority}
-                  numeric
-                />
-                <Field
-                  label="Desired deadline YYYY-MM-DD · optional"
-                  value={deadline}
-                  onChangeText={setDeadline}
-                />
-                <Field
-                  label="Remaining hours · lower estimate"
-                  value={min}
-                  onChangeText={setMin}
-                  numeric
-                />
-                <Field
-                  label="Remaining hours · upper estimate"
-                  value={max}
-                  onChangeText={setMax}
-                  numeric
-                />
-                <Field
                   label="Days of work per week"
                   value={frequency}
                   onChangeText={setFrequency}
@@ -291,6 +305,37 @@ export default function Goals() {
                   numeric
                 />
               </>
+            )}
+            <Copy small>Goal status</Copy>
+            <Row>
+              {(["active", "completed", "archived"] as const).map((status) => (
+                <Button
+                  key={status}
+                  title={
+                    status === "active"
+                      ? "Active"
+                      : status === "completed"
+                        ? "Completed"
+                        : "Archived"
+                  }
+                  selected={goalStatus === status}
+                  onPress={() => setGoalStatus(status)}
+                />
+              ))}
+            </Row>
+            {goalStatus === "paused" && (
+              <Copy small>
+                This older goal remains paused until you choose another status.
+              </Copy>
+            )}
+            {!!editing && (
+              <SlideDelete
+                name={name}
+                onDelete={() => {
+                  const goal = s.goals.find((g) => g.id === editing);
+                  if (goal) remove(goal);
+                }}
+              />
             )}
             <Button
               title={saving ? "Saving…" : "Save goal"}
@@ -305,103 +350,129 @@ export default function Goals() {
           </Card>
         </Page>
       </Modal>
-      {visibleGoals.map((g) => (
-        <Card key={g.id}>
-          <Heading>{g.name}</Heading>
-          {!!g.description && <Copy>{g.description}</Copy>}
-          <Copy small>
-            {g.status === "paused" ? "Paused · " : ""}
-            {g.deadline || "No deadline"} · priority {g.priority}
-          </Copy>
-          <Row>
-            <Button title="Edit goal" onPress={() => edit(g)} />
-            <Button
-              title="Add work"
-              onPress={() => setWork({ goalId: g.id, kind: "action" })}
-            />
-          </Row>
-          <Row>
-            {g.status !== "completed" && (
-              <Button
-                title="Complete goal"
-                onPress={() => changeStatus(g, "completed")}
-              />
-            )}
-            {g.status !== "archived" && (
-              <Button
-                title="Archive goal"
-                onPress={() => changeStatus(g, "archived")}
-              />
-            )}
-            {(g.status === "completed" || g.status === "archived") && (
-              <Button
-                title="Restore to active"
-                onPress={() => changeStatus(g, "active")}
-              />
-            )}
-            {(g.status === "active" || g.status === "paused") && (
-              <Button
-                title={g.status === "paused" ? "Resume goal" : "Pause goal"}
-                onPress={() =>
-                  changeStatus(g, g.status === "paused" ? "active" : "paused")
-                }
-              />
-            )}
-          </Row>
-          <View
-            style={{
-              backgroundColor: "#DCEBFA",
-              borderRadius: 20,
-              padding: 14,
-              gap: 12,
-            }}
-          >
-            <Text
-              accessibilityRole="header"
-              style={{ color: "#30465D", fontSize: 20, fontWeight: "700" }}
+      {!selectedGoal &&
+        visibleGoals.map((g) => {
+          const milestones = s.milestones.filter((m) => m.goalId === g.id);
+          const actions = s.actions.filter((a) => a.goalId === g.id);
+          const total = milestones.length + actions.length;
+          const done =
+            milestones.filter((m) => m.completed).length +
+            actions.filter((a) => a.completed).length;
+          const result = assessGoals(
+            [{ ...g, status: "active" }],
+            s.actions,
+            s.commitments,
+            s.preferences,
+            localDate(s.preferences.zone),
+          );
+          return (
+            <Pressable
+              key={g.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Open goal: ${g.name}`}
+              onPress={() => setSelectedGoal(g.id)}
             >
-              Milestones
-            </Text>
-            {s.milestones.filter((m) => m.goalId === g.id).length === 0 && (
-              <Text style={{ color: "#30465D" }}>No milestones yet.</Text>
-            )}
-            {s.milestones
-              .filter((m) => m.goalId === g.id)
-              .map((m) => (
-                <View key={m.id} style={{ gap: 8 }}>
-                  <Text
-                    style={{
-                      color: "#30465D",
-                      fontSize: 17,
-                      fontWeight: "600",
-                    }}
-                  >
-                    {m.completed ? "✓ " : ""}
-                    {m.name}
-                  </Text>
-                  <Row>
-                    <Button
-                      title={`Edit milestone: ${m.name}`}
-                      onPress={() =>
-                        setWork({
-                          goalId: g.id,
-                          kind: "milestone",
-                          editId: m.id,
-                        })
-                      }
-                    />
-                    <Button
-                      title={`Delete milestone: ${m.name}`}
-                      onPress={() => deleteWork("milestone", m.id, m.name)}
-                    />
-                  </Row>
-                  <Button
-                    title={
-                      m.completed
-                        ? `Reopen milestone: ${m.name}`
-                        : `Complete milestone: ${m.name}`
-                    }
-                    onPress={() =>
+              <Card>
+                <Heading>{g.name}</Heading>
+                <Copy small>
+                  {g.deadline || "No deadline"} · Priority {g.priority}
+                  {g.status === "paused" ? " · Previously paused" : ""}
+                </Copy>
+                <Copy>{result.status}</Copy>
+                <GoalProgress done={done} total={total} />
+                {result.status !== "Feasible" && (
+                  <Copy small>
+                    {result.missing[0] ||
+                      result.bottlenecks[0] ||
+                      "Required effort may exceed sustainable capacity."}
+                  </Copy>
+                )}
+              </Card>
+            </Pressable>
+          );
+        })}
+      {s.goals
+        .filter((g) => g.id === selectedGoal)
+        .map((g) => (
+          <Card key={g.id}>
+            <Heading>{g.name}</Heading>
+            {!!g.description && <Copy>{g.description}</Copy>}
+            <Copy small>
+              {g.status === "paused" ? "Paused · " : ""}
+              {g.deadline || "No deadline"} · priority {g.priority}
+            </Copy>
+            <Copy>
+              {
+                assessGoals(
+                  [{ ...g, status: "active" }],
+                  s.actions,
+                  s.commitments,
+                  s.preferences,
+                  localDate(s.preferences.zone),
+                ).status
+              }
+            </Copy>
+            <GoalProgress
+              done={
+                s.milestones.filter((m) => m.goalId === g.id && m.completed)
+                  .length +
+                s.actions.filter((a) => a.goalId === g.id && a.completed).length
+              }
+              total={
+                s.milestones.filter((m) => m.goalId === g.id).length +
+                s.actions.filter((a) => a.goalId === g.id).length
+              }
+            />
+            <Copy small>
+              {
+                s.milestones.filter((m) => m.goalId === g.id && m.completed)
+                  .length
+              }{" "}
+              of {s.milestones.filter((m) => m.goalId === g.id).length}{" "}
+              milestones ·{" "}
+              {s.actions.filter((a) => a.goalId === g.id && a.completed).length}{" "}
+              of {s.actions.filter((a) => a.goalId === g.id).length} actions
+              complete
+            </Copy>
+            <Row>
+              <Button title="Edit goal" onPress={() => edit(g)} />
+              <Button
+                title="Add work"
+                onPress={() => setWork({ goalId: g.id, kind: "action" })}
+              />
+            </Row>
+            <View
+              style={{
+                backgroundColor: palette.milestone,
+                borderRadius: 20,
+                padding: 14,
+                gap: 12,
+              }}
+            >
+              <Text
+                accessibilityRole="header"
+                style={{
+                  color: palette.milestoneText,
+                  fontSize: 20,
+                  fontWeight: "700",
+                }}
+              >
+                Milestones
+              </Text>
+              {s.milestones.filter((m) => m.goalId === g.id).length === 0 && (
+                <Text style={{ color: palette.milestoneText }}>
+                  No milestones yet.
+                </Text>
+              )}
+              {s.milestones
+                .filter((m) => m.goalId === g.id)
+                .map((m) => (
+                  <WorkRow
+                    key={m.id}
+                    kind="milestone"
+                    title={m.name}
+                    completed={m.completed}
+                    onToggle={() =>
                       commit((old) => ({
                         ...old,
                         milestones: old.milestones.map((x) =>
@@ -409,70 +480,50 @@ export default function Goals() {
                         ),
                       }))
                     }
-                  />
-                </View>
-              ))}
-            <Button
-              title="Add milestone"
-              onPress={() => setWork({ goalId: g.id, kind: "milestone" })}
-            />
-          </View>
-          <View
-            style={{
-              backgroundColor: "#F9DDE0",
-              borderRadius: 20,
-              padding: 14,
-              gap: 12,
-            }}
-          >
-            <Text
-              accessibilityRole="header"
-              style={{ color: "#673E49", fontSize: 20, fontWeight: "700" }}
-            >
-              Actions
-            </Text>
-            {s.actions.filter((a) => a.goalId === g.id).length === 0 && (
-              <Text style={{ color: "#673E49" }}>No actions yet.</Text>
-            )}
-            {s.actions
-              .filter((a) => a.goalId === g.id)
-              .map((a) => (
-                <View key={a.id} style={{ gap: 8 }}>
-                  <Text
-                    style={{
-                      color: "#673E49",
-                      fontSize: 17,
-                      fontWeight: "600",
-                    }}
-                  >
-                    {a.completed ? "✓ " : ""}
-                    {a.title}
-                  </Text>
-                  <Text style={{ color: "#673E49" }}>
-                    {a.minutes} min
-                    {a.milestoneId
-                      ? ` · ${s.milestones.find((m) => m.id === a.milestoneId)?.name || "Milestone"}`
-                      : ""}
-                  </Text>
-                  <Row>
-                    <Button
-                      title={`Edit action: ${a.title}`}
-                      onPress={() =>
-                        setWork({ goalId: g.id, kind: "action", editId: a.id })
-                      }
-                    />
-                    <Button
-                      title={`Delete action: ${a.title}`}
-                      onPress={() => deleteWork("action", a.id, a.title)}
-                    />
-                  </Row>
-                  <Button
-                    title={
-                      a.completed
-                        ? `Reopen action: ${a.title}`
-                        : `Complete action: ${a.title}`
+                    onEdit={() =>
+                      setWork({ goalId: g.id, kind: "milestone", editId: m.id })
                     }
-                    onPress={() =>
+                    onDelete={() => deleteWork("milestone", m.id, m.name)}
+                  />
+                ))}
+              <Button
+                title="Add milestone"
+                onPress={() => setWork({ goalId: g.id, kind: "milestone" })}
+              />
+            </View>
+            <View
+              style={{
+                backgroundColor: palette.action,
+                borderRadius: 20,
+                padding: 14,
+                gap: 12,
+              }}
+            >
+              <Text
+                accessibilityRole="header"
+                style={{
+                  color: palette.actionText,
+                  fontSize: 20,
+                  fontWeight: "700",
+                }}
+              >
+                Actions
+              </Text>
+              {s.actions.filter((a) => a.goalId === g.id).length === 0 && (
+                <Text style={{ color: palette.actionText }}>
+                  No actions yet.
+                </Text>
+              )}
+              {s.actions
+                .filter((a) => a.goalId === g.id)
+                .map((a) => (
+                  <WorkRow
+                    key={a.id}
+                    kind="action"
+                    title={a.title}
+                    completed={a.completed}
+                    subtitle={`${a.minutes} min${a.milestoneId ? " · " + (s.milestones.find((m) => m.id === a.milestoneId)?.name || "Milestone") : ""}`}
+                    onToggle={() =>
                       commit((old) => ({
                         ...old,
                         actions: old.actions.map((x) =>
@@ -480,17 +531,20 @@ export default function Goals() {
                         ),
                       }))
                     }
+                    onEdit={() =>
+                      setWork({ goalId: g.id, kind: "action", editId: a.id })
+                    }
+                    onDelete={() => deleteWork("action", a.id, a.title)}
                   />
-                </View>
-              ))}
-            <Button
-              title="Add action"
-              onPress={() => setWork({ goalId: g.id, kind: "action" })}
-            />
-          </View>
-          <SlideDelete name={g.name} onDelete={() => remove(g)} />
-        </Card>
-      ))}
+                ))}
+              <Button
+                title="Add action"
+                onPress={() => setWork({ goalId: g.id, kind: "action" })}
+              />
+            </View>
+          </Card>
+        ))}
+      {!selectedGoal && <FeasibilitySimulator />}
       <Button
         title={
           capacityVisible ? "Hide capacity details" : "View capacity details"

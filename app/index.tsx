@@ -1,10 +1,11 @@
+import { syncCalendars } from "../src/integrations/googleCalendar/client";
 import React, { useRef, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as Crypto from "expo-crypto";
 import { TodayOverview } from "../src/components/TodayOverview";
-import { Heatmap } from "../src/components/Heatmap";
 import { Rating } from "../src/components/Rating";
+import { makeEasier } from "../src/features/planner/makeEasier";
 import { resetDay } from "../src/features/planner/resetDay";
 import { useStore } from "../src/components/AppState";
 import {
@@ -68,6 +69,7 @@ export default function Today() {
     [move, setMove] = useState(""),
     [editTitle, setEditTitle] = useState(""),
     [editDuration, setEditDuration] = useState("");
+  const [generating, setGenerating] = useState(false);
   const [checkinStatus, setCheckinStatus] = useState("");
   const checkinRequest = useRef(0);
   const pageRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
@@ -84,7 +86,7 @@ export default function Today() {
     date,
   );
   const commit = (fn: Parameters<typeof update>[0]) =>
-    void update(fn).catch(() => {});
+    void update(fn).catch((e) => Alert.alert("Could not save", message(e)));
   async function saveRating(field: "energy" | "mood", score: number) {
     const request = ++checkinRequest.current;
     setCheckinStatus("Saving…");
@@ -128,46 +130,94 @@ export default function Today() {
       ],
     );
   }
-  function generate(selected = mode) {
+  async function generate(selected = mode) {
+    if (generating) return;
+    setGenerating(true);
     try {
-      const result = planDay({
-        date,
-        preferences: s.preferences,
-        commitments: s.commitments,
-        actions: s.actions,
-        goals: s.goals,
-        mode: selected,
-        habits: s.habits,
-        existing: items,
-        excludedActionIds: s.excludedActions[date] || [],
-        now: new Date().toISOString(),
+      let refreshed: typeof s.commitments | undefined;
+      let calendarError: string | undefined;
+      if (s.calendarIds.length) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          refreshed = await Promise.race([
+            syncCalendars(s.calendarIds, date, s.preferences.zone),
+            new Promise<never>((_, reject) => {
+              timer = setTimeout(
+                () => reject(new Error("Calendar refresh timed out.")),
+                20000,
+              );
+            }),
+          ]);
+        } catch (e) {
+          calendarError = `Using saved availability: ${message(e)}`;
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
+      }
+      let savedExplanation = "";
+      await update((old) => {
+        const commitments = refreshed
+          ? [
+              ...old.commitments.filter((c) => c.source !== "google"),
+              ...refreshed,
+            ]
+          : old.commitments;
+        const report = assessGoals(
+          old.goals,
+          old.actions,
+          commitments,
+          old.preferences,
+          date,
+        );
+        const result = planDay({
+          date,
+          preferences: old.preferences,
+          commitments,
+          actions: old.actions,
+          goals: old.goals,
+          mode: selected,
+          energy: old.checkins.find((c) => c.date === date)?.energy,
+          overloaded:
+            report.status === "Currently infeasible" ||
+            report.status === "At risk",
+          habits: old.habits,
+          existing: old.plans[date] || [],
+          excludedActionIds: old.excludedActions[date] || [],
+          now: new Date().toISOString(),
+        });
+        savedExplanation = result.explanation;
+        return {
+          ...old,
+          commitments,
+          calendarError,
+          lastSync: refreshed ? new Date().toISOString() : old.lastSync,
+          planMeta: {
+            ...old.planMeta,
+            [date]: {
+              mode: selected,
+              version: result.version,
+              explanation: result.explanation,
+              createdAt: new Date().toISOString(),
+            },
+          },
+          plans: { ...old.plans, [date]: result.items },
+          revisions: [
+            ...old.revisions,
+            {
+              date,
+              at: new Date().toISOString(),
+              reason: `Generate ${selected}`,
+              items: old.plans[date] || [],
+            },
+          ],
+        };
       });
       setMode(selected);
-      setExplanation(result.explanation);
-      commit((old) => ({
-        ...old,
-        planMeta: {
-          ...old.planMeta,
-          [date]: {
-            mode: selected,
-            version: result.version,
-            explanation: result.explanation,
-            createdAt: new Date().toISOString(),
-          },
-        },
-        plans: { ...old.plans, [date]: result.items },
-        revisions: [
-          ...old.revisions,
-          {
-            date,
-            at: new Date().toISOString(),
-            reason: `Generate ${selected}`,
-            items: old.plans[date] || [],
-          },
-        ],
-      }));
+      setExplanation(savedExplanation);
     } catch (e) {
       Alert.alert("Plan needs an edit", message(e));
+    } finally {
+      setGenerating(false);
     }
   }
   function changeItem(item: PlanItem, change: Partial<PlanItem>) {
@@ -307,8 +357,14 @@ export default function Today() {
       <TodayOverview
         onPlan={showPlanner}
         onEasier={() => {
-          setMode("recovery");
-          showPlanner();
+          void update((old) => makeEasier(old, date, new Date().toISOString()))
+            .then(() => {
+              setExplanation(
+                "Flexible work was reduced where possible. Pinned, started and completed items stay. If no flexible items remain, choose a plan below.",
+              );
+              showPlanner();
+            })
+            .catch((e) => Alert.alert("Could not simplify plan", message(e)));
         }}
         onCalendar={() => router.push("/calendar")}
         onSettings={() => router.push("/settings")}
@@ -410,7 +466,7 @@ export default function Today() {
           )}
         </Card>
       </View>
-      <Heatmap />
+
       <View
         onLayout={(event) => {
           plannerY.current = event.nativeEvent.layout.y;
@@ -442,7 +498,14 @@ export default function Today() {
             completed items stay when regenerating.
           </Copy>
           <Button
-            title={s.planMeta?.[date] ? "Regenerate my day" : "Generate my day"}
+            title={
+              generating
+                ? "Refreshing availability…"
+                : s.planMeta?.[date]
+                  ? "Regenerate my day"
+                  : "Generate my day"
+            }
+            disabled={generating}
             onPress={() => generate()}
           />
           {(!!s.planMeta?.[date] || items.some((item) => !item.completed)) && (
@@ -451,7 +514,7 @@ export default function Today() {
           <Copy small>{explanation}</Copy>
           <Copy small>
             {s.lastSync
-              ? `Calendar last synced ${new Date(s.lastSync).toLocaleString("en-GB")}. Refresh in Settings before relying on availability.`
+              ? `Calendar last synced ${new Date(s.lastSync).toLocaleString("en-GB")}. Selected calendars refresh when you generate a plan.`
               : "Google Calendar is not synced. Availability may be incomplete; add manual commitments in Settings."}
             {s.calendarError ? ` ${s.calendarError}` : ""}
           </Copy>

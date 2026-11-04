@@ -1,4 +1,8 @@
 export const palette = {
+  milestone: "#DCEBFA",
+  milestoneText: "#30465D",
+  action: "#F9DDE0",
+  actionText: "#673E49",
   linen: "#F7F5F2",
   sky: "#D2DDE7",
   berry: "#D5A0A8",

@@ -129,7 +129,27 @@ export function assessGoals(
           ? "At risk"
           : "Feasible";
   return {
-    version: "feasibility-1",
+    version: "feasibility-2",
+    weeklyStatus:
+      missing.length || !active.length
+        ? "Unknown"
+        : low > capacity.high
+          ? "Over capacity"
+          : high > capacity.low
+            ? "At risk"
+            : "Within capacity",
+    deadlineStatus:
+      missing.length || !active.length
+        ? "Unknown"
+        : bottlenecks.length
+          ? "Needs review"
+          : "No bottleneck found in the assessed horizon",
+    explanation:
+      missing.length || !active.length
+        ? "Add deadlines and remaining effort ranges for a meaningful comparison."
+        : status === "Feasible"
+          ? "Estimated work fits the conservative capacity range; future availability can change."
+          : "The current scope or timing exceeds part of your capacity estimate. Try extending deadlines or reducing scope.",
     status,
     required: { low, high },
     capacity: { low: capacity.low, high: capacity.high },
@@ -152,7 +172,7 @@ export function assessGoals(
       status === "Feasible"
         ? []
         : [
-            "Consider extending a deadline, reducing milestone scope, or pausing a lower-priority goal. Your priorities will stay unchanged.",
+            "Consider extending a deadline, reducing milestone scope, or reviewing a lower-priority goal. Your priorities will stay unchanged.",
           ],
     assumptions: `Next 13 weeks; ${Math.round(p.capacityLow * 100)}–${Math.round(p.capacityHigh * 100)}% of free windows, capped at ${p.weeklyMinutes / 60} discretionary hours/week. Includes minimum work frequency. Deadline demand is cumulative across goals. Beyond 13 weeks uses a weekly projection; future availability is uncertain. Smallest actions are checked against actual windows, not a full resource-constrained scheduling proof. Estimates are not exact.`,
   };
