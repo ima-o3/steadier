@@ -16,7 +16,8 @@ import {
 import { FeasibilitySimulator } from "../../src/components/FeasibilitySimulator";
 import { GoalProgress } from "../../src/components/GoalProgress";
 import { WorkRow } from "../../src/components/WorkRow";
-import { SlideDelete } from "../../src/components/SlideDelete";
+import { SwipeDelete } from "../../src/components/SwipeDelete";
+import { CapacityHours } from "../../src/components/CapacityHours";
 import { WorkEditor, WorkSelection } from "../../src/components/WorkEditor";
 import {
   removeActions,
@@ -329,11 +330,12 @@ export default function Goals() {
               </Copy>
             )}
             {!!editing && (
-              <SlideDelete
-                name={name}
-                onDelete={() => {
-                  const goal = s.goals.find((g) => g.id === editing);
-                  if (goal) remove(goal);
+              <Button
+                title="Delete goal"
+                disabled={saving}
+                onPress={() => {
+                  const g = s.goals.find((g) => g.id === editing);
+                  if (g) remove(g);
                 }}
               />
             )}
@@ -366,29 +368,30 @@ export default function Goals() {
             localDate(s.preferences.zone),
           );
           return (
-            <Pressable
-              key={g.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Open goal: ${g.name}`}
-              onPress={() => setSelectedGoal(g.id)}
-            >
-              <Card>
-                <Heading>{g.name}</Heading>
-                <Copy small>
-                  {g.deadline || "No deadline"} · Priority {g.priority}
-                  {g.status === "paused" ? " · Previously paused" : ""}
-                </Copy>
-                <Copy>{result.status}</Copy>
-                <GoalProgress done={done} total={total} />
-                {result.status !== "Feasible" && (
+            <SwipeDelete key={g.id} name={g.name} onDelete={() => remove(g)}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Open goal: ${g.name}`}
+                onPress={() => setSelectedGoal(g.id)}
+              >
+                <Card>
+                  <Heading>{g.name}</Heading>
                   <Copy small>
-                    {result.missing[0] ||
-                      result.bottlenecks[0] ||
-                      "Required effort may exceed sustainable capacity."}
+                    {g.deadline || "No deadline"} · Priority {g.priority}
+                    {g.status === "paused" ? " · Previously paused" : ""}
                   </Copy>
-                )}
-              </Card>
-            </Pressable>
+                  <Copy>{result.status}</Copy>
+                  <GoalProgress done={done} total={total} />
+                  {result.status !== "Feasible" && (
+                    <Copy small>
+                      {result.missing[0] ||
+                        result.bottlenecks[0] ||
+                        "Required effort may exceed sustainable capacity."}
+                    </Copy>
+                  )}
+                </Card>
+              </Pressable>
+            </SwipeDelete>
           );
         })}
       {s.goals
@@ -563,6 +566,7 @@ export default function Goals() {
               Sustainable: {(report.capacity.low / 60).toFixed(1)}–
               {(report.capacity.high / 60).toFixed(1)} h/week
             </Copy>
+            <CapacityHours />
             <Copy small>{report.assumptions}</Copy>
             {[
               ...report.missing,

@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import { Routines } from "../../src/components/Routines";
+import React, { useState, useEffect } from "react";
 import { Alert, Linking } from "react-native";
 import * as Crypto from "expo-crypto";
 import { File, Paths } from "expo-file-system";
@@ -41,11 +42,11 @@ export default function Settings() {
     [high, setHigh] = useState(String(s.preferences.capacityHigh * 100)),
     [title, setTitle] = useState(""),
     [from, setFrom] = useState(""),
-    [to, setTo] = useState(""),
-    [habit, setHabit] = useState(""),
-    [habitMinutes, setHabitMinutes] = useState("10"),
-    [habitFrequency, setHabitFrequency] = useState("3"),
-    [habitMinimum, setHabitMinimum] = useState("");
+    [to, setTo] = useState("");
+  useEffect(
+    () => setWeekly(String(s.preferences.weeklyMinutes / 60)),
+    [s.preferences.weeklyMinutes],
+  );
   const commit = (fn: Parameters<typeof update>[0]) =>
     void update(fn).catch(() => {});
   async function work(fn: () => Promise<void>) {
@@ -395,60 +396,7 @@ export default function Settings() {
             />
           ))}
       </Card>
-      <Card>
-        <Heading>Flexible routines</Heading>
-        <Field label="Habit name" value={habit} onChangeText={setHabit} />
-        <Field
-          label="Duration minutes"
-          value={habitMinutes}
-          onChangeText={setHabitMinutes}
-          numeric
-        />
-        <Field
-          label="Aim days per week · 1–7"
-          value={habitFrequency}
-          onChangeText={setHabitFrequency}
-          numeric
-        />
-        <Field
-          label="Minimum version · optional"
-          value={habitMinimum}
-          onChangeText={setHabitMinimum}
-        />
-        <Button
-          title="Add routine"
-          onPress={() => {
-            if (
-              !habit.trim() ||
-              !Number.isFinite(Number(habitMinutes)) ||
-              Number(habitMinutes) < 1 ||
-              !Number.isInteger(Number(habitFrequency)) ||
-              Number(habitFrequency) < 1 ||
-              Number(habitFrequency) > 7
-            ) {
-              Alert.alert(
-                "Routine",
-                "Use a name, positive duration and 1–7 days/week.",
-              );
-              return;
-            }
-            commit((old) => ({
-              ...old,
-              habits: [
-                ...old.habits,
-                {
-                  id: Crypto.randomUUID(),
-                  name: habit.trim(),
-                  minutes: Number(habitMinutes),
-                  minimum: habitMinimum,
-                  daysPerWeek: Number(habitFrequency),
-                },
-              ],
-            }));
-            setHabit("");
-          }}
-        />
-      </Card>
+      <Routines />
       <Card>
         <Heading>Preferences</Heading>
         <Button

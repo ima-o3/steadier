@@ -107,14 +107,12 @@ test("visible goal controls add, edit and remove a goal with confirmation", asyn
     "Personal",
   );
   await fireEvent.press(
-    screen.getByRole("button", { name: "Open goal: Updated portfolio" }),
-  );
-  await fireEvent.press(screen.getByRole("button", { name: "Edit goal" }));
-  await fireEvent.press(
     screen.getByLabelText("Show delete for Updated portfolio"),
   );
   expect(latest.goals).toHaveLength(2);
-  await fireEvent.press(screen.getByRole("button", { name: "Delete" }));
+  await fireEvent.press(
+    screen.getByRole("button", { name: "Delete Updated portfolio" }),
+  );
   expect(latest.goals).toHaveLength(2);
   await act(async () => {
     alert.mock.calls

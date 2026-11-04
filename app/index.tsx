@@ -1,3 +1,4 @@
+import { Routines } from "../src/components/Routines";
 import { syncCalendars } from "../src/integrations/googleCalendar/client";
 import React, { useRef, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
@@ -712,32 +713,7 @@ export default function Today() {
             </Card>
           ))}
       </Card>
-      <Card>
-        <Heading>Small routines</Heading>
-        {s.habits.length === 0 && (
-          <Copy>Add a flexible routine in Settings.</Copy>
-        )}
-        {s.habits.map((h) => (
-          <Button
-            key={h.id}
-            title={`${s.habitLogs[date]?.includes(h.id) ? "✓ " : ""}${h.name} · aim ${h.daysPerWeek}/week`}
-            onPress={() =>
-              commit((old) => {
-                const logs = old.habitLogs[date] || [];
-                return {
-                  ...old,
-                  habitLogs: {
-                    ...old.habitLogs,
-                    [date]: logs.includes(h.id)
-                      ? logs.filter((id) => id !== h.id)
-                      : [...logs, h.id],
-                  },
-                };
-              })
-            }
-          />
-        ))}
-      </Card>
+      <Routines />
     </Page>
   );
 }

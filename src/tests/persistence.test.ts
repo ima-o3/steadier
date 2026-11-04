@@ -306,3 +306,43 @@ it("v0.1.7 schema records survive reopening and simulator changes without losing
   expect(upgraded.plans).toEqual(oldState.plans);
   expect(memory.key).toBe(key);
 });
+
+it("routine deletion cleans relational logs but preserves completed plan history", async () => {
+  const { removeRoutine } = await import("../features/planner/routines");
+  await openStore();
+  const item = {
+    id: `${date}-h`,
+    title: "Walk",
+    kind: "habit" as const,
+    effort: 1,
+    variant: 0,
+    locked: true,
+    completed: false,
+    start: `${date}T09:00:00Z`,
+    end: `${date}T09:10:00Z`,
+  };
+  const old = {
+    ...defaultState,
+    habits: [
+      {
+        id: "h",
+        name: "Walk",
+        minutes: 10,
+        minimum: "Step outside",
+        daysPerWeek: 3,
+      },
+    ],
+    habitLogs: { [date]: ["h"] },
+    plans: { [date]: [item, { ...item, id: "completed-h", completed: true }] },
+    revisions: [{ date, at: item.start, reason: "Original", items: [item] }],
+  };
+  await saveState(old);
+  await saveState(removeRoutine(old, "h"));
+  const restored = await openStore();
+  expect(restored.habits).toEqual([]);
+  expect(restored.habitLogs[date]).toEqual([]);
+  expect(restored.plans[date]).toEqual([
+    { ...item, id: "completed-h", completed: true },
+  ]);
+  expect(restored.revisions).toEqual(old.revisions);
+});

@@ -1,3 +1,4 @@
+import { CapacityHours } from "./CapacityHours";
 import React, { useState, useMemo } from "react";
 import { Alert, Modal } from "react-native";
 import { useStore } from "./AppState";
@@ -96,6 +97,7 @@ export function FeasibilitySimulator() {
       <Card>
         <Heading>Room for your goals</Heading>
         {summary(current)}
+        <CapacityHours />
         <Button
           title="Make this realistic"
           onPress={() => {
