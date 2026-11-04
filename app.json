@@ -3,14 +3,14 @@
     "name": "Steadier",
     "slug": "steadier",
     "scheme": "steadier",
-    "version": "0.1.7",
+    "version": "0.1.8",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "buildNumber": "8",
+      "buildNumber": "9",
       "supportsTablet": false,
-      "bundleIdentifier": "com.yourname.steadier"
+      "bundleIdentifier": "com.ima03.steadier"
     },
     "plugins": [
       "expo-router",
