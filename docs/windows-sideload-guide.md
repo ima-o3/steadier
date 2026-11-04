@@ -4,9 +4,9 @@ This route compiles the app on a GitHub-hosted Mac, downloads an **unsigned phys
 
 ## 1. Get the IPA
 
-The private repository is `ima-o3/steadier`. Open **Actions → iPhone IPA for Windows sideloading → Run workflow**. The workflow is manual-only, has a 45-minute timeout, and retains artifacts for 3 days. A new source version requires a build; a weekly signing refresh does not.
+The private repository is `ima-o3/steadier`. Open **Actions → iPhone IPA for Windows sideloading → Run workflow**. The workflow is manual-only, has a 120-minute timeout per job, and retains artifacts for 3 days. A new source version requires a build; a weekly signing refresh does not.
 
-When the run succeeds, download the **Steadier-unsigned-iphone** artifact and extract the ZIP. Keep `Steadier-unsigned.ipa`, its SHA-256 checksum and `build-info.json` on your Windows PC. The IPA includes a Release JavaScript bundle and does not require Metro or Expo Go. Apple passwords, certificates and provisioning profiles are not passed to GitHub.
+When the run succeeds, download the versioned **Steadier-v0.1.7-build8-unsigned-iphone** artifact (or the matching name for a later release) and extract the ZIP. Keep `Steadier-unsigned.ipa`, its SHA-256 checksum and `build-info.json` on your Windows PC. The IPA includes a Release JavaScript bundle and does not require Metro or Expo Go. Apple passwords, certificates and provisioning profiles are not passed to GitHub.
 
 Private repositories use the GitHub account's included Actions allowance, and macOS runs consume that allowance. Keep paid overages disabled and stop if the included allowance is exhausted. This route does not promise unlimited free cloud compilation. Do not make this personal project public just to change billing.
 
