@@ -48,6 +48,93 @@ jest.mock("../integrations/googleCalendar/client", () => ({
 
 afterEach(() => jest.restoreAllMocks());
 
+test("schedule keeps controls collapsed, filters rows and completes only suggested work", async () => {
+  const date = localDate(prefs.zone);
+  const task = {
+    id: "task",
+    title: "Draft report",
+    start: `${date}T09:00:00Z`,
+    end: `${date}T09:30:00Z`,
+    kind: "task" as const,
+    completed: false,
+    locked: false,
+    variant: 0,
+    effort: 1,
+  };
+  const habit = {
+    ...task,
+    id: "habit",
+    title: "Walk outside",
+    kind: "habit" as const,
+  };
+  const fixed = {
+    id: "meeting",
+    title: "Meeting",
+    start: `${date}T11:00:00Z`,
+    end: `${date}T12:00:00Z`,
+    busy: true,
+    source: "manual" as const,
+  };
+  await render(
+    <Harness
+      state={{
+        ...initial,
+        plans: { [date]: [task, habit] },
+        commitments: [fixed],
+      }}
+    />,
+  );
+  expect(screen.queryByText("Move / edit time")).toBeNull();
+  expect(
+    screen.queryByLabelText("Complete scheduled item: Meeting"),
+  ).toBeNull();
+  await fireEvent.press(screen.getByLabelText("Options for Draft report"));
+  expect(screen.getByText("Move / edit time")).toBeTruthy();
+  await fireEvent.press(
+    screen.getByLabelText("Complete scheduled item: Draft report"),
+  );
+  expect(latest.plans[date]?.find((i) => i.id === "task")?.completed).toBe(
+    true,
+  );
+  expect(latest.commitments).toEqual([fixed]);
+  await fireEvent.press(screen.getByRole("button", { name: "Focus" }));
+  expect(screen.queryByLabelText("Options for Walk outside")).toBeNull();
+  await fireEvent.press(screen.getByRole("button", { name: "Recovery" }));
+  expect(screen.getByLabelText("Options for Walk outside")).toBeTruthy();
+  expect(screen.queryByLabelText("Options for Draft report")).toBeNull();
+});
+
+test("saved sleep and screen observations update the summary and editable targets", async () => {
+  const date = localDate(prefs.zone);
+  await render(
+    <Harness
+      state={{
+        ...initial,
+        checkins: [{ id: "check", date, sleepHours: 7, screenMinutes: 180 }],
+      }}
+    />,
+  );
+  expect(
+    screen.getByLabelText("Wellbeing summary: 9.0 out of 10"),
+  ).toBeTruthy();
+  expect(screen.getByLabelText("Sleep duration: 7h")).toBeTruthy();
+  await fireEvent.press(screen.getByText("Edit steadiness targets"));
+  await fireEvent.changeText(screen.getByLabelText("Sleep target hours"), "7");
+  await fireEvent.changeText(
+    screen.getByLabelText("Screen time target minutes"),
+    "180",
+  );
+  await fireEvent.press(screen.getByText("Save targets"));
+  expect(
+    screen.getByLabelText("Wellbeing summary: 10.0 out of 10"),
+  ).toBeTruthy();
+  expect(latest.preferences).toEqual({
+    ...prefs,
+    sleepTargetHours: 7,
+    screenTargetMinutes: 180,
+  });
+});
+
 test("tapping mood and energy updates today's wellbeing immediately and preserves both scores", async () => {
   await render(<Harness />);
   await fireEvent.press(screen.getByLabelText("Energy 4 out of 10"));

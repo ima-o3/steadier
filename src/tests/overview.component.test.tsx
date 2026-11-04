@@ -48,7 +48,7 @@ test("dashboard uses actual observations and tasks and wires all quick actions",
   const actions = handlers();
   await render(<TodayOverview {...actions} />);
   expect(
-    screen.getByLabelText("Wellbeing summary: 5.0 out of 10"),
+    screen.getByLabelText("Wellbeing summary: 3.3 out of 10"),
   ).toBeTruthy();
   expect(
     screen.getByText(

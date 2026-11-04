@@ -58,6 +58,13 @@ beforeEach(() => {
   memory.key = undefined;
   memory.cipher = true;
 });
+it("retains personal steadiness targets after reopening encrypted store adapter", async () => {
+  const original = await openStore();
+  await saveState({ ...original, preferences: { ...original.preferences, sleepTargetHours: 8, screenTargetMinutes: 300 } });
+  const reopened = await openStore();
+  expect(reopened.preferences.sleepTargetHours).toBe(8);
+  expect(reopened.preferences.screenTargetMinutes).toBe(300);
+});
 it("runs the low-energy acceptance workflow locally and restores the resulting plan", async () => {
   await openStore();
   const demo = demoState(defaultState),

@@ -28,10 +28,22 @@ export function SwipeDelete({
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, g) =>
           Math.abs(g.dx) > 10 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+        onPanResponderGrant: () =>
+          x.stopAnimation((value) => {
+            base.current = value;
+          }),
         onPanResponderMove: (_, g) =>
           x.setValue(Math.max(-96, Math.min(0, base.current + g.dx))),
         onPanResponderRelease: (_, g) =>
-          settle(base.current + g.dx < -45 ? -96 : 0),
+          settle(
+            g.vx < -0.4
+              ? -96
+              : g.vx > 0.4
+                ? 0
+                : base.current + g.dx < -45
+                  ? -96
+                  : 0,
+          ),
         onPanResponderTerminate: () => settle(0),
       }),
     [x],
@@ -64,22 +76,22 @@ export function SwipeDelete({
         style={{ transform: [{ translateX: x }], backgroundColor: t.bg }}
       >
         {children}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${open ? "Hide" : "Show"} delete for ${name}`}
+          onPress={() => settle(open ? 0 : -96)}
+          style={{
+            minHeight: 44,
+            justifyContent: "center",
+            alignItems: "flex-end",
+            paddingHorizontal: 16,
+          }}
+        >
+          <Text style={{ color: t.muted, fontSize: 13 }}>
+            {open ? "Cancel" : "•••"}
+          </Text>
+        </Pressable>
       </Animated.View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${open ? "Hide" : "Show"} delete for ${name}`}
-        onPress={() => settle(open ? 0 : -96)}
-        style={{
-          minHeight: 44,
-          justifyContent: "center",
-          alignItems: "flex-end",
-          paddingHorizontal: 16,
-        }}
-      >
-        <Text style={{ color: t.muted, fontSize: 13 }}>
-          {open ? "Cancel" : "•••"}
-        </Text>
-      </Pressable>
     </View>
   );
 }

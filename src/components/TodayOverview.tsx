@@ -1,3 +1,5 @@
+import { steadiness } from "../engines/steadiness";
+import { SteadinessTargets } from "./SteadinessTargets";
 import React from "react";
 import {
   Alert,
@@ -33,7 +35,15 @@ export function TodayOverview({
   const t = useTheme();
   const today = localDate(state.preferences.zone);
   const check = state.checkins.find((c) => c.date === today);
-  const score = indicator(check);
+  const summary = steadiness(
+    check,
+    state.preferences.sleepTargetHours,
+    state.preferences.screenTargetMinutes,
+  );
+  const score =
+    summary.value === undefined
+      ? undefined
+      : { value: summary.value, explanation: summary.explanation };
   const month = today.slice(0, 7);
   const dayCount = new Date(
     Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5)), 0),
@@ -53,15 +63,6 @@ export function TodayOverview({
   const size = Math.min(222, useWindowDimensions().width - 64);
   const radius = size * 0.4,
     stroke = size * 0.13;
-  const colors = [
-    "#FFE39B",
-    "#C9DAB7",
-    "#F4C8E1",
-    "#C4CCFA",
-    "#D5DEB7",
-    "#D8C4F7",
-  ];
-  const symbols = ["☼", "☾", "♡", "↔", "♧", "✧"];
   const action = (label: string, onPress: () => void, primary = false) => (
     <Pressable
       accessibilityRole="button"
@@ -207,7 +208,7 @@ export function TodayOverview({
           pointerEvents="none"
           style={{ position: "absolute", width: size, height: size }}
         >
-          {colors.flatMap((color, segment) =>
+          {summary.factors.flatMap((factor, segment) =>
             Array.from({ length: 24 }, (_, i) => {
               const angle =
                 ((segment * 60 - 100 + (i * 36) / 23) * Math.PI) / 180;
@@ -219,7 +220,11 @@ export function TodayOverview({
                     width: stroke,
                     height: stroke,
                     borderRadius: stroke / 2,
-                    backgroundColor: color,
+                    backgroundColor: factor.color,
+                    opacity:
+                      factor.value === undefined
+                        ? 0.18
+                        : 0.3 + factor.value * 0.07,
                     left: size / 2 + radius * Math.cos(angle) - stroke / 2,
                     top: size / 2 + radius * Math.sin(angle) - stroke / 2,
                   }}
@@ -227,7 +232,7 @@ export function TodayOverview({
               );
             }),
           )}
-          {symbols.map((symbol, i) => {
+          {summary.factors.map((factor, i) => {
             const angle = ((i * 60 - 82) * Math.PI) / 180;
             return (
               <Text
@@ -235,15 +240,17 @@ export function TodayOverview({
                 style={{
                   position: "absolute",
                   width: 32,
-                  height: 32,
+                  height: 42,
                   textAlign: "center",
-                  fontSize: 25,
+                  fontSize: 17,
                   color: "#55446F",
                   left: size / 2 + radius * Math.cos(angle) - 16,
                   top: size / 2 + radius * Math.sin(angle) - 16,
                 }}
               >
-                {symbol}
+                {factor.value === undefined
+                  ? "·"
+                  : `${factor.icon}\n${factor.value.toFixed(0)}`}
               </Text>
             );
           })}
@@ -266,7 +273,7 @@ export function TodayOverview({
             Alert.alert(
               "Today’s steadiness",
               score?.explanation ??
-                "Record mood or energy to see your personal summary. Missing observations stay missing.",
+                "Record a check-in to see your personal summary. Missing observations stay missing.",
             )
           }
           style={{ minHeight: 44, justifyContent: "center" }}
@@ -275,6 +282,34 @@ export function TodayOverview({
             {score ? "today’s steadiness ⓘ" : "no check-in yet ⓘ"}
           </Text>
         </Pressable>
+      </View>
+      <SteadinessTargets />
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+        {summary.factors.map((f) => (
+          <Pressable
+            key={f.name}
+            accessibilityRole="button"
+            accessibilityLabel={`${f.name}: ${f.raw === undefined ? "not recorded" : `${f.raw}${f.unit}`}`}
+            onPress={() =>
+              Alert.alert(
+                f.name,
+                `${f.raw === undefined ? "Not recorded" : `${f.raw}${f.unit}`}\n${f.value === undefined ? "Excluded from the summary." : `Contribution: ${f.value.toFixed(1)}/10`}\n\n${summary.explanation}`,
+              )
+            }
+            style={{
+              padding: 8,
+              minHeight: 44,
+              borderRadius: 14,
+              backgroundColor: t.button,
+              justifyContent: "center",
+            }}
+          >
+            <Text style={{ color: t.muted, fontSize: 11 }}>
+              {f.icon} {f.name} {f.raw ?? "—"}
+              {f.raw === undefined ? "" : f.unit}
+            </Text>
+          </Pressable>
+        ))}
       </View>
       <View
         style={{

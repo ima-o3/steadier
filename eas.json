@@ -1,5 +1,5 @@
 {
-  "cli": { "version": ">=16.0.0", "appVersionSource": "remote" },
+  "cli": { "version": ">=16.0.0", "appVersionSource": "local" },
   "build": {
     "development": {
       "environment": "development",
@@ -7,7 +7,24 @@
       "distribution": "internal"
     },
     "preview": { "environment": "preview", "distribution": "internal" },
-    "production": { "environment": "production", "autoIncrement": true }
+    "production": { "environment": "production", "autoIncrement": true },
+    "testflight": {
+      "extends": "production",
+      "distribution": "store",
+      "developmentClient": false,
+      "autoIncrement": false,
+      "env": {
+        "EXPO_NO_DOTENV": "1",
+        "IOS_BUNDLE_IDENTIFIER": "com.ima03.steadier.CUY2KJ4PL6",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "71547164512-3at7e94qiiuo8mt620q99rmi2gq8dks3.apps.googleusercontent.com",
+        "GOOGLE_IOS_URL_SCHEME": "com.googleusercontent.apps.71547164512-3at7e94qiiuo8mt620q99rmi2gq8dks3"
+      }
+    }
   },
-  "submit": { "production": {} }
+  "submit": {
+    "production": {},
+    "testflight": {
+      "ios": { "appleTeamId": "CUY2KJ4PL6", "ascAppId": "6830824398" }
+    }
+  }
 }

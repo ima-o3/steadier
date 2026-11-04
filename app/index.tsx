@@ -1,3 +1,4 @@
+import { ScheduleRow } from "../src/components/ScheduleRow";
 import { Routines } from "../src/components/Routines";
 import { syncCalendars } from "../src/integrations/googleCalendar/client";
 import React, { useRef, useState } from "react";
@@ -70,6 +71,9 @@ export default function Today() {
     [move, setMove] = useState(""),
     [editTitle, setEditTitle] = useState(""),
     [editDuration, setEditDuration] = useState("");
+  const [scheduleFilter, setScheduleFilter] = useState<
+    "all" | "task" | "habit"
+  >("all");
   const [generating, setGenerating] = useState(false);
   const [checkinStatus, setCheckinStatus] = useState("");
   const checkinRequest = useRef(0);
@@ -353,20 +357,21 @@ export default function Today() {
       Alert.alert("Check-in", message(e));
     }
   };
+  const simplifyDay = () => {
+    void update((old) => makeEasier(old, date, new Date().toISOString()))
+      .then(() => {
+        setExplanation(
+          "Flexible work was reduced where possible. Pinned, started and completed items stay. If no flexible items remain, choose a plan below.",
+        );
+        showPlanner();
+      })
+      .catch((e) => Alert.alert("Could not simplify plan", message(e)));
+  };
   return (
     <Page scrollRef={pageRef}>
       <TodayOverview
         onPlan={showPlanner}
-        onEasier={() => {
-          void update((old) => makeEasier(old, date, new Date().toISOString()))
-            .then(() => {
-              setExplanation(
-                "Flexible work was reduced where possible. Pinned, started and completed items stay. If no flexible items remain, choose a plan below.",
-              );
-              showPlanner();
-            })
-            .catch((e) => Alert.alert("Could not simplify plan", message(e)));
-        }}
+        onEasier={simplifyDay}
         onCalendar={() => router.push("/calendar")}
         onSettings={() => router.push("/settings")}
         onComplete={(item) => changeItem(item, { completed: !item.completed })}
@@ -538,14 +543,25 @@ export default function Today() {
             rest.
           </Copy>
         )}
-        {items
-          .filter((i) => i.kind === "task")
-          .slice(0, 3)
-          .map((i, n) => (
-            <Copy key={`priority-${i.id}`}>
-              {n === 0 ? "Priority" : "Supporting"}: {i.title}
-            </Copy>
-          ))}
+        <Copy small>A calm, realistic plan for your day.</Copy>
+        <Row>
+          <Button
+            title="Today"
+            selected={scheduleFilter === "all"}
+            onPress={() => setScheduleFilter("all")}
+          />
+          <Button title="Plan" onPress={showPlanner} />
+          <Button
+            title="Focus"
+            selected={scheduleFilter === "task"}
+            onPress={() => setScheduleFilter("task")}
+          />
+          <Button
+            title="Recovery"
+            selected={scheduleFilter === "habit"}
+            onPress={() => setScheduleFilter("habit")}
+          />
+        </Row>
         {[
           ...items.map((i) => ({
             id: i.id,
@@ -564,17 +580,38 @@ export default function Today() {
               id: c.id,
               start: c.start,
               end: c.end,
-              title: `Fixed · ${c.title}${c.allDay ? " (all day)" : ""}`,
+              title: `${c.title}${c.allDay ? " (all day)" : ""}`,
               item: undefined,
             })),
         ]
+          .filter(
+            (row) =>
+              scheduleFilter === "all" || row.item?.kind === scheduleFilter,
+          )
           .sort((a, b) => a.start.localeCompare(b.start))
           .map((row) => (
-            <Card key={row.id}>
-              <Copy>
-                {clock(row.start, s.preferences.zone)}–
-                {clock(row.end, s.preferences.zone)} · {row.title}
-              </Copy>
+            <ScheduleRow
+              key={row.id}
+              title={row.title}
+              start={clock(row.start, s.preferences.zone)}
+              end={clock(row.end, s.preferences.zone)}
+              label={
+                !row.item
+                  ? "Fixed"
+                  : row.item.kind === "habit"
+                    ? "Recovery · Small routine"
+                    : row.item.locked
+                      ? "Pinned"
+                      : "Suggested"
+              }
+              completed={row.item?.completed}
+              onComplete={
+                row.item
+                  ? () =>
+                      changeItem(row.item!, { completed: !row.item!.completed })
+                  : undefined
+              }
+            >
               {row.item && (
                 <>
                   <Row>
@@ -710,8 +747,23 @@ export default function Today() {
                   )}
                 </>
               )}
-            </Card>
+            </ScheduleRow>
           ))}
+        {scheduleFilter !== "all" &&
+          !items.some((i) => i.kind === scheduleFilter) && (
+            <Copy small>
+              No {scheduleFilter === "task" ? "focus tasks" : "small routines"}{" "}
+              scheduled. Choose Today to see everything.
+            </Copy>
+          )}
+        <Row>
+          <Button title="Make easier" onPress={simplifyDay} />
+          <Button
+            title={generating ? "Generating…" : "Regenerate"}
+            disabled={generating}
+            onPress={() => generate()}
+          />
+        </Row>
       </Card>
       <Routines />
     </Page>

@@ -66,6 +66,8 @@ export interface PlanItem {
   variant: number;
 }
 export interface Preferences {
+  sleepTargetHours?: number;
+  screenTargetMinutes?: number;
   zone: string;
   startHour: number;
   endHour: number;
