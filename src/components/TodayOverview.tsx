@@ -40,6 +40,17 @@ export function TodayOverview({
     state.preferences.sleepTargetHours,
     state.preferences.screenTargetMinutes,
   );
+  const weights = summary.factors.map((f) =>
+    f.value === undefined ? 0.5 : Math.max(0.5, f.value),
+  );
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  let cursor = -90;
+  const arcs = weights.map((w) => {
+    const sweep = (w / totalWeight) * 324;
+    const arc = { start: cursor, sweep };
+    cursor += sweep + 6;
+    return arc;
+  });
   const score =
     summary.value === undefined
       ? undefined
@@ -211,7 +222,9 @@ export function TodayOverview({
           {summary.factors.flatMap((factor, segment) =>
             Array.from({ length: 24 }, (_, i) => {
               const angle =
-                ((segment * 60 - 100 + (i * 36) / 23) * Math.PI) / 180;
+                ((arcs[segment]!.start + (i * arcs[segment]!.sweep) / 23) *
+                  Math.PI) /
+                180;
               return (
                 <View
                   key={`${segment}-${i}`}
@@ -233,7 +246,8 @@ export function TodayOverview({
             }),
           )}
           {summary.factors.map((factor, i) => {
-            const angle = ((i * 60 - 82) * Math.PI) / 180;
+            const angle =
+              ((arcs[i]!.start + arcs[i]!.sweep / 2) * Math.PI) / 180;
             return (
               <Text
                 key={i}
@@ -248,9 +262,7 @@ export function TodayOverview({
                   top: size / 2 + radius * Math.sin(angle) - 16,
                 }}
               >
-                {factor.value === undefined
-                  ? "·"
-                  : `${factor.icon}\n${factor.value.toFixed(0)}`}
+                {factor.value === undefined ? "·" : factor.icon}
               </Text>
             );
           })}
@@ -293,7 +305,7 @@ export function TodayOverview({
             onPress={() =>
               Alert.alert(
                 f.name,
-                `${f.raw === undefined ? "Not recorded" : `${f.raw}${f.unit}`}\n${f.value === undefined ? "Excluded from the summary." : `Contribution: ${f.value.toFixed(1)}/10`}\n\n${summary.explanation}`,
+                `${f.raw === undefined ? "Not recorded" : `${f.raw}${f.unit}`}\n${f.value === undefined ? "Excluded from the summary." : `Score: ${f.value.toFixed(1)}/10`}\n\n${summary.explanation}`,
               )
             }
             style={{

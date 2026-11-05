@@ -125,6 +125,7 @@ export function WorkEditor({
               minutes: +minutes,
               effort: +effort,
               completed: previous?.completed ?? false,
+              completedOn: previous?.completedOn,
               dependencies,
               variants: [
                 ...(small.trim()

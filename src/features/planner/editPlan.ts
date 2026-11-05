@@ -11,7 +11,13 @@ export function editPlanItem(
   const actions =
     change.completed !== undefined && item.actionId && item.variant === 0
       ? state.actions.map((a) =>
-          a.id === item.actionId ? { ...a, completed: change.completed! } : a,
+          a.id === item.actionId
+            ? {
+                ...a,
+                completed: change.completed!,
+                completedOn: change.completed ? date : undefined,
+              }
+            : a,
         )
       : state.actions;
   let habitLogs = state.habitLogs;

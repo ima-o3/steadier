@@ -29,6 +29,12 @@ import { assessGoals } from "../../src/engines/goalFeasibility";
 import { localDate } from "../../src/utils/time";
 export default function Goals() {
   const { state: s, update } = useStore();
+  const [allActions, setAllActions] = useState<Record<string, boolean>>({});
+  const today = localDate(s.preferences.zone);
+  const goalActions = (id: string) =>
+    s.actions.filter(
+      (a) => a.goalId === id && (!a.completed || a.completedOn === today),
+    );
   const [selectedGoal, setSelectedGoal] = useState("");
   const [goalStatus, setGoalStatus] = useState<Goal["status"]>("active");
   const [formVisible, setFormVisible] = useState(false);
@@ -479,7 +485,13 @@ export default function Goals() {
                       commit((old) => ({
                         ...old,
                         milestones: old.milestones.map((x) =>
-                          x.id === m.id ? { ...x, completed: !x.completed } : x,
+                          x.id === m.id
+                            ? {
+                                ...x,
+                                completed: !x.completed,
+                                completedOn: !x.completed ? today : undefined,
+                              }
+                            : x,
                         ),
                       }))
                     }
@@ -517,29 +529,60 @@ export default function Goals() {
                   No actions yet.
                 </Text>
               )}
-              {s.actions
-                .filter((a) => a.goalId === g.id)
-                .map((a) => (
-                  <WorkRow
-                    key={a.id}
-                    kind="action"
-                    title={a.title}
-                    completed={a.completed}
-                    subtitle={`${a.minutes} min${a.milestoneId ? " · " + (s.milestones.find((m) => m.id === a.milestoneId)?.name || "Milestone") : ""}`}
-                    onToggle={() =>
-                      commit((old) => ({
-                        ...old,
-                        actions: old.actions.map((x) =>
-                          x.id === a.id ? { ...x, completed: !x.completed } : x,
-                        ),
-                      }))
-                    }
-                    onEdit={() =>
-                      setWork({ goalId: g.id, kind: "action", editId: a.id })
-                    }
-                    onDelete={() => deleteWork("action", a.id, a.title)}
-                  />
-                ))}
+              {(allActions[g.id]
+                ? s.actions.filter((a) => a.goalId === g.id)
+                : goalActions(g.id).slice(0, 3)
+              ).map((a) => (
+                <WorkRow
+                  key={a.id}
+                  kind="action"
+                  title={a.title}
+                  completed={a.completed}
+                  subtitle={`${a.minutes} min · ${
+                    a.dependencies.length
+                      ? "Needs: " +
+                        a.dependencies
+                          .map((id) => {
+                            const dependency = s.actions.find(
+                              (x) => x.id === id,
+                            );
+                            return dependency
+                              ? `${dependency.completed ? "✓ " : "○ "}${dependency.title}`
+                              : "Unavailable action";
+                          })
+                          .join(", ")
+                      : "No dependencies"
+                  }${a.milestoneId ? " · " + (s.milestones.find((m) => m.id === a.milestoneId)?.name || "Milestone") : ""}`}
+                  onToggle={() =>
+                    commit((old) => ({
+                      ...old,
+                      actions: old.actions.map((x) =>
+                        x.id === a.id
+                          ? {
+                              ...x,
+                              completed: !x.completed,
+                              completedOn: !x.completed ? today : undefined,
+                            }
+                          : x,
+                      ),
+                    }))
+                  }
+                  onEdit={() =>
+                    setWork({ goalId: g.id, kind: "action", editId: a.id })
+                  }
+                  onDelete={() => deleteWork("action", a.id, a.title)}
+                />
+              ))}
+              <Button
+                title={
+                  allActions[g.id]
+                    ? "Show fewer actions"
+                    : `View all actions (${s.actions.filter((a) => a.goalId === g.id).length})`
+                }
+                onPress={() =>
+                  setAllActions((old) => ({ ...old, [g.id]: !old[g.id] }))
+                }
+              />
               <Button
                 title="Add action"
                 onPress={() => setWork({ goalId: g.id, kind: "action" })}

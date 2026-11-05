@@ -32,6 +32,7 @@ export interface Milestone {
   deadline?: string;
 }
 export interface Action {
+  completedOn?: string;
   id: string;
   goalId: string;
   milestoneId?: string;
