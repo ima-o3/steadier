@@ -1,3 +1,5 @@
+import { useRouter } from "expo-router";
+import { habitProgress } from "../features/planner/habitProgress";
 import React, { useState } from "react";
 import { Alert, Modal, Pressable, Text, View } from "react-native";
 import * as Crypto from "expo-crypto";
@@ -16,7 +18,8 @@ import { SwipeDelete } from "./SwipeDelete";
 import { Habit } from "../types";
 import { localDate } from "../utils/time";
 import { removeRoutine } from "../features/planner/routines";
-export function Routines() {
+export function Routines({ dashboard = false }: { dashboard?: boolean }) {
+  const router = useRouter();
   const { state: s, update } = useStore(),
     t = useTheme(),
     date = localDate(s.preferences.zone);
@@ -32,7 +35,7 @@ export function Routines() {
   function remove(h: Habit) {
     Alert.alert(
       `Delete ${h.name}?`,
-      "This removes the routine, its checkmarks and unfinished plan suggestions. Completed plan entries and plan revision history stay.",
+      "This removes the habit, its checkmarks and unfinished plan suggestions. Completed plan entries and plan revision history stay.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -41,9 +44,7 @@ export function Routines() {
           onPress: () => {
             void update((old) => removeRoutine(old, h.id))
               .then(() => setDraft(null))
-              .catch((e) =>
-                Alert.alert("Could not delete routine", message(e)),
-              );
+              .catch((e) => Alert.alert("Could not delete habit", message(e)));
           },
         },
       ],
@@ -78,16 +79,31 @@ export function Routines() {
       }));
       setDraft(null);
     } catch (e) {
-      Alert.alert("Could not save routine", message(e));
+      Alert.alert("Could not save habit", message(e));
     } finally {
       setSaving(false);
     }
   }
+  if (!dashboard)
+    return (
+      <Card>
+        <Heading>Habit tracker</Heading>
+        <Copy>
+          {s.habits.length} habits ·{" "}
+          {s.habits.filter((h) => s.habitLogs[date]?.includes(h.id)).length}{" "}
+          completed today
+        </Copy>
+        <Button
+          title="Open habit dashboard"
+          onPress={() => router.push("/habits")}
+        />
+      </Card>
+    );
   return (
     <Card>
-      <Heading>Small routines</Heading>
+      <Heading>Your habits</Heading>
       <Button
-        title="Add routine"
+        title="Add habit"
         onPress={() =>
           edit({
             id: Crypto.randomUUID(),
@@ -98,54 +114,114 @@ export function Routines() {
           })
         }
       />
-      {!s.habits.length && <Copy>Add a small routine that fits your day.</Copy>}
+      {!s.habits.length && <Copy>Add a habit that fits your day.</Copy>}
+      <Copy small>
+        Weekly progress uses the last 7 days and your days-per-week target. Each
+        habit counts once per day. The grid shows the last 28 days, oldest
+        first.
+      </Copy>
       {s.habits.map((h) => (
         <SwipeDelete key={h.id} name={h.name} onDelete={() => remove(h)}>
-          <View
-            style={{
-              padding: 12,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <Pressable
-              accessibilityRole="checkbox"
-              accessibilityLabel={`Complete routine: ${h.name}`}
-              accessibilityState={{
-                checked: s.habitLogs[date]?.includes(h.id) || false,
-              }}
-              onPress={() => {
-                void update((old) => {
-                  const logs = old.habitLogs[date] || [];
-                  return {
-                    ...old,
-                    habitLogs: {
-                      ...old.habitLogs,
-                      [date]: logs.includes(h.id)
-                        ? logs.filter((id) => id !== h.id)
-                        : [...logs, h.id],
-                    },
-                  };
-                }).catch((e) => Alert.alert("Could not save", message(e)));
-              }}
-              style={{ minWidth: 44, minHeight: 44, justifyContent: "center" }}
+          <View style={{ padding: 12, gap: 8 }}>
+            <Copy small>
+              {habitProgress(h, s.habitLogs, date).week} / {h.daysPerWeek} days
+              this week · {habitProgress(h, s.habitLogs, date).percent}% of
+              target · {habitProgress(h, s.habitLogs, date).total} total
+              completions
+            </Copy>
+            <View
+              accessibilityLabel={`${h.name}: ${habitProgress(h, s.habitLogs, date).percent}% of weekly target`}
+              style={{ height: 8, backgroundColor: t.button, borderRadius: 8 }}
             >
-              <Text style={{ color: t.accent, fontSize: 28 }}>
-                {s.habitLogs[date]?.includes(h.id) ? "☑" : "☐"}
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Edit routine: ${h.name}`}
-              onPress={() => edit(h)}
-              style={{ flex: 1, minHeight: 44 }}
+              <View
+                style={{
+                  height: 8,
+                  borderRadius: 8,
+                  backgroundColor: t.accent,
+                  width: `${habitProgress(h, s.habitLogs, date).percent}%`,
+                }}
+              />
+            </View>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
+              {habitProgress(h, s.habitLogs, date).days.map((d) => (
+                <View
+                  key={d}
+                  accessible
+                  accessibilityLabel={`${h.name}, ${d}: ${s.habitLogs[d]?.includes(h.id) ? "completed" : "not recorded"}`}
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 5,
+                    backgroundColor: s.habitLogs[d]?.includes(h.id)
+                      ? t.accent
+                      : t.button,
+                  }}
+                />
+              ))}
+            </View>
+            <View
+              style={{
+                padding: 12,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+              }}
             >
-              <Copy>{h.name}</Copy>
-              <Copy small>
-                {h.minutes} min · {h.daysPerWeek} days/week · Edit
-              </Copy>
-            </Pressable>
+              <Pressable
+                accessibilityRole="checkbox"
+                accessibilityLabel={`Complete habit: ${h.name}`}
+                accessibilityState={{
+                  checked: s.habitLogs[date]?.includes(h.id) || false,
+                }}
+                onPress={() => {
+                  void update((old) => {
+                    const logs = old.habitLogs[date] || [];
+                    return {
+                      ...old,
+                      plans: {
+                        ...old.plans,
+                        ...(old.plans[date]
+                          ? {
+                              [date]: old.plans[date]!.map((item) =>
+                                item.kind === "habit" &&
+                                item.id === `${date}-${h.id}`
+                                  ? { ...item, completed: !logs.includes(h.id) }
+                                  : item,
+                              ),
+                            }
+                          : {}),
+                      },
+                      habitLogs: {
+                        ...old.habitLogs,
+                        [date]: logs.includes(h.id)
+                          ? logs.filter((id) => id !== h.id)
+                          : [...logs, h.id],
+                      },
+                    };
+                  }).catch((e) => Alert.alert("Could not save", message(e)));
+                }}
+                style={{
+                  minWidth: 44,
+                  minHeight: 44,
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ color: t.accent, fontSize: 28 }}>
+                  {s.habitLogs[date]?.includes(h.id) ? "☑" : "☐"}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Edit habit: ${h.name}`}
+                onPress={() => edit(h)}
+                style={{ flex: 1, minHeight: 44 }}
+              >
+                <Copy>{h.name}</Copy>
+                <Copy small>
+                  {h.minutes} min · {h.daysPerWeek} days/week · Edit
+                </Copy>
+              </Pressable>
+            </View>
           </View>
         </SwipeDelete>
       ))}
@@ -160,14 +236,14 @@ export function Routines() {
         <Page
           title={
             s.habits.some((h) => h.id === draft?.id)
-              ? "Edit routine"
-              : "New routine"
+              ? "Edit habit"
+              : "New habit"
           }
         >
           {draft && (
             <>
               <Field
-                label="Routine name"
+                label="Habit name"
                 value={draft.name}
                 onChangeText={(name) => setDraft({ ...draft, name })}
               />
@@ -193,7 +269,7 @@ export function Routines() {
                 and completed history keep their original details.
               </Copy>
               <Button
-                title={saving ? "Saving…" : "Save routine"}
+                title={saving ? "Saving…" : "Save habit"}
                 disabled={saving}
                 onPress={() => void save()}
               />
@@ -204,7 +280,7 @@ export function Routines() {
               />
               {s.habits.some((h) => h.id === draft.id) && (
                 <Button
-                  title="Delete routine"
+                  title="Delete habit"
                   disabled={saving}
                   onPress={() => remove(draft)}
                 />

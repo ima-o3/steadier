@@ -52,6 +52,7 @@ function Navigation() {
           tabBarIcon: ({ color }) => <TabIcon name="calendar" color={color} />,
         }}
       />
+      <Tabs.Screen name="habits/index" options={{ href: null }} />
       <Tabs.Screen
         name="settings/index"
         options={{

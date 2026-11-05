@@ -3,12 +3,12 @@
     "name": "Steadier",
     "slug": "steadier",
     "scheme": "steadier",
-    "version": "0.1.11",
+    "version": "0.1.12",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "buildNumber": "12",
+      "buildNumber": "13",
       "supportsTablet": false,
       "bundleIdentifier": "com.ima03.steadier"
     },

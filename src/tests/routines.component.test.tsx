@@ -46,7 +46,7 @@ function Harness({ fail = false }: { fail?: boolean }) {
   });
   return (
     <>
-      <Routines />
+      <Routines dashboard />
       <CapacityHours />
     </>
   );
@@ -83,19 +83,19 @@ test("horizontal swipe reveals deletion without deleting; vertical scroll does n
 test("routine editing preserves identity and checkmarks; cancellation preserves saved values", async () => {
   await render(<Harness />);
   await fireEvent.press(
-    screen.getByRole("checkbox", { name: "Complete routine: Walk" }),
+    screen.getByRole("checkbox", { name: "Complete habit: Walk" }),
   );
   const logs = latest.habitLogs;
   await fireEvent.press(
-    screen.getByRole("button", { name: "Edit routine: Walk" }),
+    screen.getByRole("button", { name: "Edit habit: Walk" }),
   );
   await fireEvent.changeText(
-    screen.getByLabelText("Routine name"),
+    screen.getByLabelText("Habit name"),
     "Morning walk",
   );
   await fireEvent.changeText(screen.getByLabelText("Duration minutes"), "20");
   await fireEvent.changeText(screen.getByLabelText("Days per week"), "4");
-  await fireEvent.press(screen.getByRole("button", { name: "Save routine" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Save habit" }));
   expect(latest.habits[0]).toMatchObject({
     id: "h",
     name: "Morning walk",
@@ -104,9 +104,9 @@ test("routine editing preserves identity and checkmarks; cancellation preserves 
   });
   expect(latest.habitLogs).toEqual(logs);
   await fireEvent.press(
-    screen.getByRole("button", { name: "Edit routine: Morning walk" }),
+    screen.getByRole("button", { name: "Edit habit: Morning walk" }),
   );
-  await fireEvent.changeText(screen.getByLabelText("Routine name"), "Unsaved");
+  await fireEvent.changeText(screen.getByLabelText("Habit name"), "Unsaved");
   await fireEvent.press(screen.getByRole("button", { name: "Cancel" }));
   expect(latest.habits[0]?.name).toBe("Morning walk");
 });
@@ -152,10 +152,10 @@ test("capacity editing validates, cancels and saves only weekly hours", async ()
 test("routine and capacity failed saves retain drafts", async () => {
   jest.spyOn(Alert, "alert");
   await render(<Harness fail />);
-  await fireEvent.press(screen.getByText("Add routine"));
-  await fireEvent.changeText(screen.getByLabelText("Routine name"), "Read");
-  await fireEvent.press(screen.getByText("Save routine"));
-  expect(screen.getByLabelText("Routine name").props.value).toBe("Read");
+  await fireEvent.press(screen.getByText("Add habit"));
+  await fireEvent.changeText(screen.getByLabelText("Habit name"), "Read");
+  await fireEvent.press(screen.getByText("Save habit"));
+  expect(screen.getByLabelText("Habit name").props.value).toBe("Read");
   expect(latest.habits).toHaveLength(1);
   await fireEvent.press(screen.getByRole("button", { name: "Cancel" }));
   await fireEvent.press(screen.getByText("Edit discretionary hours"));
