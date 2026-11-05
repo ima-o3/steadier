@@ -5,9 +5,17 @@ const memory = vi.hoisted(() => ({
   key: undefined as string | undefined,
   cipher: true,
 }));
+vi.mock("expo-file-system", () => ({
+  File: class {
+    get exists() {
+      return !!memory.db;
+    }
+  },
+}));
 vi.mock("expo-secure-store", () => ({
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 1,
-  getItemAsync: async () => memory.key,
+  getItemAsync: async (name: string) =>
+    name === "steadier.database.key" ? memory.key : null,
   setItemAsync: async (_name: string, value: string) => {
     memory.key = value;
   },
@@ -18,10 +26,12 @@ vi.mock("expo-crypto", () => ({
 vi.mock("expo-sqlite", async () => {
   const { DatabaseSync } = await import("node:sqlite");
   return {
+    defaultDatabaseDirectory: "file:///db",
     openDatabaseAsync: async () => {
       memory.db ??= new DatabaseSync(":memory:");
       const db = memory.db;
       const adapter = {
+        closeAsync: async () => {},
         execAsync: async (sql: string) => db.exec(sql),
         getFirstAsync: async (sql: string) =>
           sql === "PRAGMA cipher_version"
@@ -60,7 +70,14 @@ beforeEach(() => {
 });
 it("retains personal steadiness targets after reopening encrypted store adapter", async () => {
   const original = await openStore();
-  await saveState({ ...original, preferences: { ...original.preferences, sleepTargetHours: 8, screenTargetMinutes: 300 } });
+  await saveState({
+    ...original,
+    preferences: {
+      ...original.preferences,
+      sleepTargetHours: 8,
+      screenTargetMinutes: 300,
+    },
+  });
   const reopened = await openStore();
   expect(reopened.preferences.sleepTargetHours).toBe(8);
   expect(reopened.preferences.screenTargetMinutes).toBe(300);

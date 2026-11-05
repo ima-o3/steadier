@@ -1,3 +1,5 @@
+import { File } from "expo-file-system";
+import { parseBackup } from "./backup";
 import * as SQLite from "expo-sqlite";
 import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
@@ -43,78 +45,123 @@ let database: SQLite.SQLiteDatabase;
 let transactions: Promise<void> = Promise.resolve();
 // Expo's exclusive transaction helper opens a new, unkeyed connection. Keep
 // SQLCipher transactions on our keyed connection and serialize every write.
-function withStoreTransaction(task: (tx: SQLite.SQLiteDatabase) => Promise<void>) {
+function withStoreTransaction(
+  task: (tx: SQLite.SQLiteDatabase) => Promise<void>,
+  connection = database,
+) {
   const operation = transactions.then(async () => {
-    await database.execAsync("BEGIN IMMEDIATE");
+    await connection.execAsync("BEGIN IMMEDIATE");
     try {
-      await task(database);
-      await database.execAsync("COMMIT");
+      await task(connection);
+      await connection.execAsync("COMMIT");
     } catch (error) {
-      try { await database.execAsync("ROLLBACK"); } catch { /* Preserve the original error. */ }
+      try {
+        await connection.execAsync("ROLLBACK");
+      } catch {
+        /* Preserve the original error. */
+      }
       throw error;
     }
   });
   transactions = operation.catch(() => {});
   return operation;
 }
+const activeStoreKey = "steadier.database.active";
+const legacyKey = "steadier.database.key";
+const keyOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+const randomKey = async () =>
+  Array.from(await Crypto.getRandomBytesAsync(32), (b) =>
+    b.toString(16).padStart(2, "0"),
+  ).join("");
+function databaseExists(name: string) {
+  return new File(SQLite.defaultDatabaseDirectory, name).exists;
+}
 export async function openStore() {
-  let key = await SecureStore.getItemAsync("steadier.database.key");
-  if (!key) {
-    key = Array.from(await Crypto.getRandomBytesAsync(32), (b) =>
-      b.toString(16).padStart(2, "0"),
-    ).join("");
-    await SecureStore.setItemAsync("steadier.database.key", key, {
-      keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-    });
-  }
-  if (!/^[a-f0-9]{64}$/.test(key))
-    throw new Error("Invalid encryption key. Data has not been changed.");
-  database = await SQLite.openDatabaseAsync("steadier.db");
-  await database.execAsync(`PRAGMA key = "x'${key}'";`);
-  const cipher = await database.getFirstAsync<Record<string, unknown>>(
-    "PRAGMA cipher_version",
-  );
-  if (!cipher || !Object.values(cipher).some(Boolean))
+  const active = await SecureStore.getItemAsync(activeStoreKey);
+  if (active && !/^steadier-recovery-[a-f0-9-]+\.db$/.test(active))
     throw new Error(
-      "SQLCipher is unavailable. Install a native development build; unencrypted storage is disabled.",
+      "Invalid storage selection. Your databases have not been changed.",
     );
-  await database.execAsync("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;");
-  const version = await database.getFirstAsync<{ user_version: number }>(
-    "PRAGMA user_version",
-  );
-  if ((version?.user_version || 0) > 1)
-    throw new Error("This database needs a newer version of Steadier.");
-  if (!version?.user_version)
-    await withStoreTransaction(async (tx) => {
-      await tx.execAsync(migration1);
-    });
+  const name = active || "steadier.db";
+  const keyName = active ? `steadier.key.${active}` : legacyKey;
+  let key = await SecureStore.getItemAsync(keyName);
+  if (!key) {
+    if (active || databaseExists(name))
+      throw new Error(
+        "The encryption key for your existing database is unavailable. Restore your saved export below. The existing database has been preserved.",
+      );
+    key = await randomKey();
+    await SecureStore.setItemAsync(keyName, key, keyOptions);
+  }
+  if (active && !databaseExists(name))
+    throw new Error(
+      "The recovered database is missing. Restore your saved export below.",
+    );
+  database = await openEncryptedDatabase(name, key);
   return readState();
 }
-async function rows<T>(table: string) {
+async function openEncryptedDatabase(name: string, key: string) {
+  if (!/^[a-f0-9]{64}$/.test(key))
+    throw new Error("Invalid encryption key. Data has not been changed.");
+  const database = await SQLite.openDatabaseAsync(name);
+  try {
+    await database.execAsync(`PRAGMA key = "x'${key}'";`);
+    const cipher = await database.getFirstAsync<Record<string, unknown>>(
+      "PRAGMA cipher_version",
+    );
+    if (!cipher || !Object.values(cipher).some(Boolean))
+      throw new Error(
+        "SQLCipher is unavailable. Install a native development build; unencrypted storage is disabled.",
+      );
+    await database.execAsync(
+      "PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;",
+    );
+    const version = await database.getFirstAsync<{ user_version: number }>(
+      "PRAGMA user_version",
+    );
+    if ((version?.user_version || 0) > 1)
+      throw new Error("This database needs a newer version of Steadier.");
+    if (!version?.user_version)
+      await withStoreTransaction(async (tx) => {
+        await tx.execAsync(migration1);
+      }, database);
+    return database;
+  } catch (error) {
+    await database.closeAsync().catch(() => {});
+    throw error;
+  }
+}
+async function rows<T>(table: string, connection = database) {
   return (
-    await database.getAllAsync<{ payload: string }>(
+    await connection.getAllAsync<{ payload: string }>(
       `SELECT payload FROM ${table}`,
     )
   ).map((r) => JSON.parse(r.payload) as T);
 }
-async function readState(): Promise<State> {
-  const settings = (await rows<Partial<State>>("users_local_settings"))[0];
+async function readState(connection = database): Promise<State> {
+  const settings = (
+    await rows<Partial<State>>("users_local_settings", connection)
+  )[0];
   return {
     ...defaultState,
     ...settings,
     preferences: {
       ...defaultState.preferences,
-      ...(await rows<State["preferences"]>("planning_preferences"))[0],
+      ...(
+        await rows<State["preferences"]>("planning_preferences", connection)
+      )[0],
     },
-    goals: await rows("goals"),
-    milestones: await rows("milestones"),
-    actions: await rows("actions"),
-    checkins: await rows("daily_checkins"),
-    commitments: await rows("commitments"),
-    habits: await rows("habit_definitions"),
+    goals: await rows("goals", connection),
+    milestones: await rows("milestones", connection),
+    actions: await rows("actions", connection),
+    checkins: await rows("daily_checkins", connection),
+    commitments: await rows("commitments", connection),
+    habits: await rows("habit_definitions", connection),
   };
 }
-export async function saveState(s: State) {
+export async function saveState(s: State, connection = database) {
   await withStoreTransaction(async (tx) => {
     const now = new Date().toISOString();
     const insert = async (
@@ -266,5 +313,39 @@ export async function saveState(s: State) {
       ),
       { algorithm_version: "feasibility-1" },
     );
-  });
+  }, connection);
+}
+
+// Recovery never overwrites the old database or its key. Switch only after a
+// complete transaction and a fresh connection have verified the restored data.
+export async function restoreBackup(text: string): Promise<State> {
+  const state = parseBackup(text);
+  const name = `steadier-recovery-${Crypto.randomUUID()}.db`;
+  const key = await randomKey();
+  const keyName = `steadier.key.${name}`;
+  await SecureStore.setItemAsync(keyName, key, keyOptions);
+  if ((await SecureStore.getItemAsync(keyName)) !== key)
+    throw new Error(
+      "Could not verify the new encryption key. Recovery was not activated.",
+    );
+  let candidate = await openEncryptedDatabase(name, key);
+  try {
+    await saveState(state, candidate);
+    const integrity = await candidate.getFirstAsync<Record<string, unknown>>(
+      "PRAGMA integrity_check",
+    );
+    if (!integrity || Object.values(integrity)[0] !== "ok")
+      throw new Error("The restored database did not pass verification.");
+    await candidate.closeAsync();
+    candidate = await openEncryptedDatabase(name, key);
+    const restored = await readState(candidate);
+    await SecureStore.setItemAsync(activeStoreKey, name, keyOptions);
+    const previous = database;
+    database = candidate;
+    if (previous) await previous.closeAsync().catch(() => {});
+    return restored;
+  } catch (error) {
+    await candidate.closeAsync().catch(() => {});
+    throw error;
+  }
 }

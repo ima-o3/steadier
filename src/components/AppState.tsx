@@ -1,3 +1,5 @@
+import { File } from "expo-file-system";
+import { parseBackup } from "../database/repositories/backup";
 import React, {
   createContext,
   useContext,
@@ -7,6 +9,8 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
+  Button,
+  ScrollView,
   Alert,
   Text,
   View,
@@ -17,6 +21,7 @@ import {
   defaultState,
   openStore,
   saveState,
+  restoreBackup,
 } from "../database/repositories/store";
 interface Store {
   state: State;
@@ -41,6 +46,9 @@ export function AppState({ children }: { children: React.ReactNode }) {
   }, []);
   const [state, setState] = useState<State>(),
     [error, setError] = useState("");
+  const [opening, setOpening] = useState(true);
+  const [restoring, setRestoring] = useState(false);
+  const recoveryBusy = useRef(false);
   const current = useRef(defaultState),
     queue = useRef(Promise.resolve());
   useEffect(() => {
@@ -58,10 +66,14 @@ export function AppState({ children }: { children: React.ReactNode }) {
         setError("");
         current.current = s;
         setState(s);
+        setOpening(false);
       })
       .catch((e) => {
         clearTimeout(timeout);
-        if (active) setError(String(e));
+        if (active) {
+          setError(String(e));
+          setOpening(false);
+        }
       });
     return () => {
       active = false;
@@ -83,11 +95,50 @@ export function AppState({ children }: { children: React.ReactNode }) {
     });
     return next;
   };
+  async function chooseBackup() {
+    if (opening || recoveryBusy.current) return;
+    recoveryBusy.current = true;
+    setRestoring(true);
+    try {
+      const picked = await File.pickFileAsync({
+        mimeTypes: ["application/json"],
+      });
+      if (picked.canceled) return;
+      if (picked.result.size > 20 * 1024 * 1024)
+        throw new Error("Backup is too large (maximum 20 MB).");
+      const text = await picked.result.text();
+      const backup = parseBackup(text);
+      const confirmed = await new Promise<boolean>((resolve) =>
+        Alert.alert(
+          "Restore saved backup?",
+          `${backup.goals.length} goals, ${backup.actions.length} actions and ${backup.checkins.length} check-ins. This restores the data as it was when exported. Your existing database and original export will be kept.`,
+          [
+            { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+            { text: "Restore backup", onPress: () => resolve(true) },
+          ],
+          { cancelable: true, onDismiss: () => resolve(false) },
+        ),
+      );
+      if (!confirmed) return;
+      const restored = await restoreBackup(text);
+      current.current = restored;
+      setState(restored);
+      setError("");
+    } catch {
+      Alert.alert(
+        "Restore did not finish",
+        "The file may be incomplete or storage may be unavailable. Your original database and export have been kept. Please keep both and contact support.",
+      );
+    } finally {
+      recoveryBusy.current = false;
+      setRestoring(false);
+    }
+  }
   if (error)
     return (
-      <View
-        style={{
-          flex: 1,
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
           backgroundColor: "#F7F5F2",
           padding: 30,
           paddingTop: 80,
@@ -103,9 +154,15 @@ export function AppState({ children }: { children: React.ReactNode }) {
           {error}
         </Text>
         <Text style={{ color: "#34302D", marginTop: 20 }}>
-          Please share the error above. Your saved data has not been deleted.
+          Your existing database has been kept. You can restore a Steadier JSON
+          export saved in Files into a separate encrypted database.
         </Text>
-      </View>
+        <Button
+          title={restoring ? "Restoring�" : "Restore saved backup"}
+          disabled={opening || restoring}
+          onPress={() => void chooseBackup()}
+        />
+      </ScrollView>
     );
   if (!state)
     return (
