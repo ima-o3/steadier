@@ -93,7 +93,7 @@ export default function Today() {
   const commit = (fn: Parameters<typeof update>[0]) =>
     void update(fn).catch((e) => Alert.alert("Could not save", message(e)));
   async function saveRating(
-    field: "energy" | "mood" | "functioning",
+    field: "energy" | "mood",
     score: number,
   ) {
     const request = ++checkinRequest.current;
@@ -430,11 +430,7 @@ export default function Today() {
                 value={check?.mood}
                 onSelect={(score) => void saveRating("mood", score)}
               />
-              <Rating
-                label="Daily functioning"
-                value={check?.functioning}
-                onSelect={(score) => void saveRating("functioning", score)}
-              />
+
               {!!checkinStatus && <Copy small>{checkinStatus}</Copy>}
               <Button
                 title={

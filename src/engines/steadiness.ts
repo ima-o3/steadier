@@ -41,14 +41,6 @@ export function steadiness(c?: Checkin, sleepTarget = 8, screenTarget = 300) {
       color: "#C4CCFA",
     },
     {
-      name: "Daily functioning",
-      raw: c?.functioning,
-      value: c?.functioning,
-      unit: "/10",
-      icon: "♧",
-      color: "#D5DEB7",
-    },
-    {
       name: "Sleep quality",
       raw: c?.sleepQuality,
       value: c?.sleepQuality,

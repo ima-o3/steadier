@@ -16,8 +16,8 @@ it("uses each recorded numeric observation and explains the personal formula", (
     screenMinutes: 180,
     functioning: 4,
   });
-  expect(result.value).toBeCloseTo(43 / 6);
-  expect(result.factors.map((f) => f.value)).toEqual([6, 8, 8, 10, 4, 7]);
+  expect(result.value).toBeCloseTo(39 / 5);
+  expect(result.factors.map((f) => f.value)).toEqual([6, 8, 8, 10, 7]);
   expect(result.explanation).toContain("not a clinical score");
 });
 it("treats zero as recorded and respects changed targets with bounded contributions", () => {
@@ -30,3 +30,5 @@ it("treats zero as recorded and respects changed targets with bounded contributi
     steadiness({ ...base, sleepHours: 24, screenMinutes: 1440 }).value,
   ).toBe(0);
 });
+
+it("excludes retired functioning values from historical scores",()=>{expect(steadiness({...base,mood:8,functioning:1}).value).toBe(8);});

@@ -15,10 +15,10 @@ export function TrendChart({
     <View style={{ gap: 8 }}>
       <Copy small>
         14-day mood (first bar) and energy (second bar), 1–10. Missing values
-        have no bar.
+        have no bar. Newest day first.
       </Copy>
       {Array.from({ length: 14 }, (_, i) => {
-        const day = nextDate(date, i - 13),
+        const day = nextDate(date, -i),
           c = observations.find((c) => c.date === day);
         return (
           <View
