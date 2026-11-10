@@ -1,5 +1,6 @@
 import { Routines } from "../../src/components/Routines";
 import React, { useState, useEffect } from "react";
+import { useRouter } from "expo-router";
 import { Alert, Linking } from "react-native";
 import * as Crypto from "expo-crypto";
 import { File, Paths } from "expo-file-system";
@@ -26,6 +27,7 @@ import {
 } from "../../src/integrations/googleCalendar/client";
 import { localDate } from "../../src/utils/time";
 export default function Settings() {
+  const router = useRouter();
   const { state: s, update } = useStore(),
     [calendars, setCalendars] = useState<CalendarEntry[]>([]),
     [busy, setBusy] = useState(false),
@@ -168,6 +170,11 @@ export default function Settings() {
   }
   return (
     <Page title="Settings">
+      <Card>
+        <Heading>Getting started</Heading>
+        <Copy>Want a quick refresher? See how Steadier works again.</Copy>
+        <Button title="Replay tutorial" onPress={() => router.push("/?tutorial=1")} />
+      </Card>
       <Card>
         <Heading>Google Calendar</Heading>
         <Copy small>
