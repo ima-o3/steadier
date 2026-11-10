@@ -33,7 +33,7 @@ import {
 } from "../src/utils/time";
 import { assessGoals } from "../src/engines/goalFeasibility";
 import { editPlanItem } from "../src/features/planner/editPlan";
-import { demoState } from "../src/features/demo";
+import { WelcomeOnboarding } from "../src/components/WelcomeOnboarding";
 import { freeWindows } from "../src/engines/capacityModel";
 const dayChoices: Record<Mode, { title: string; description: string }> = {
   recovery: {
@@ -65,7 +65,7 @@ export default function Today() {
     [mode, setMode] = useState<Mode>(s.planMeta?.[date]?.mode || "steady"),
     [explanation, setExplanation] = useState(
       s.planMeta?.[date]?.explanation ||
-        "Choose how much to take on, then generate your day.",
+        "Pick a pace, then make a plan.",
     ),
     [edit, setEdit] = useState(""),
     [move, setMove] = useState(""),
@@ -367,6 +367,8 @@ export default function Today() {
       })
       .catch((e) => Alert.alert("Could not simplify plan", message(e)));
   };
+  if (!s.onboarded) return <WelcomeOnboarding />;
+
   return (
     <Page scrollRef={pageRef}>
       <TodayOverview
@@ -384,28 +386,6 @@ export default function Today() {
           DEMO DATA · Examples are stored locally. Clear demo data in Settings
           before recording personal observations.
         </Copy>
-      )}
-      {!s.onboarded && (
-        <Card>
-          <Heading>A steadier day</Heading>
-          <Copy>
-            Start with a check-in or add a goal. Everything is optional.
-            Settings lets you choose your routine and connect a calendar.
-          </Copy>
-          <Button
-            title="Start with my own data"
-            onPress={() => commit((old) => ({ ...old, onboarded: true }))}
-          />
-          <Button
-            title="Explore deterministic demo"
-            disabled={
-              s.goals.length > 0 ||
-              s.checkins.length > 0 ||
-              s.commitments.length > 0
-            }
-            onPress={() => commit(demoState)}
-          />
-        </Card>
       )}
       <View
         onLayout={(event) => {
@@ -430,7 +410,7 @@ export default function Today() {
               {!!checkinStatus && <Copy small>{checkinStatus}</Copy>}
               <Button
                 title={
-                  details ? "Fewer fields" : "Sleep, screen time and notes"
+                  details ? "Show fewer fields" : "Add sleep or notes"
                 }
                 onPress={() => setDetails(!details)}
               />
@@ -455,7 +435,7 @@ export default function Today() {
                     numeric
                   />
                   <Field
-                    label="Symptoms or annotation · optional"
+                    label="Notes (optional)"
                     value={notes}
                     onChangeText={setNotes}
                     multiline
