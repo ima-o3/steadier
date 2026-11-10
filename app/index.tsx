@@ -3,7 +3,7 @@ import { Routines } from "../src/components/Routines";
 import { syncCalendars } from "../src/integrations/googleCalendar/client";
 import React, { useRef, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Crypto from "expo-crypto";
 import { TodayOverview } from "../src/components/TodayOverview";
 import { Rating } from "../src/components/Rating";
@@ -54,6 +54,7 @@ const dayChoices: Record<Mode, { title: string; description: string }> = {
 };
 export default function Today() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ tutorial?: string }>();
   const { state: s, update } = useStore(),
     date = localDate(s.preferences.zone),
     check = s.checkins.find((c) => c.date === date);
@@ -367,7 +368,7 @@ export default function Today() {
       })
       .catch((e) => Alert.alert("Could not simplify plan", message(e)));
   };
-  if (!s.onboarded) return <WelcomeOnboarding />;
+  if (!s.onboarded || params.tutorial === "1") return <WelcomeOnboarding />;
 
   return (
     <Page scrollRef={pageRef}>
