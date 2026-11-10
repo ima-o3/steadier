@@ -108,7 +108,7 @@ export default function Goals() {
   useEffect(() => {
     if (params.new === "1") {
       newGoal();
-      router.setParams({ new: undefined });
+      router.setParams({ new: "" });
     }
   }, [params.new]);
 
