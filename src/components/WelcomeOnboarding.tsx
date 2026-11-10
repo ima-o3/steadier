@@ -4,7 +4,6 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useStore } from "./AppState";
 import { useTheme } from "./ui";
-import { demoState } from "../features/demo";
 
 const tutorial = [
   {
@@ -37,25 +36,17 @@ export function WelcomeOnboarding() {
   const t = useTheme();
   const { width } = useWindowDimensions();
   const orbitSize = Math.min(width - 30, 390);
+  const isDark = t.bg === "#211D32";
   const router = useRouter();
-  const { state, update } = useStore();
+  const { update } = useStore();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
-  const hasPersonalData =
-    state.goals.length > 0 ||
-    state.checkins.length > 0 ||
-    state.commitments.length > 0;
 
-  async function finish(destination: "goals" | "today" | "demo") {
+  async function finish(destination: "goals" | "today") {
     if (busy) return;
     setBusy(true);
     try {
-      if (destination === "demo") {
-        if (hasPersonalData) return;
-        await update(demoState);
-      } else {
-        await update((old) => ({ ...old, onboarded: true }));
-      }
+      await update((old) => ({ ...old, onboarded: true }));
       if (destination === "goals") {
         router.replace("/goals?new=1");
       } else {
@@ -139,7 +130,7 @@ export function WelcomeOnboarding() {
             paddingHorizontal: 28,
             paddingBottom: 26,
             justifyContent: "space-between",
-            backgroundColor: state.preferences.appearance === "dark" ? t.bg : "#FCF9FF",
+            backgroundColor: isDark ? t.bg : "#FCF9FF",
           }}
         >
           <View
@@ -168,7 +159,7 @@ export function WelcomeOnboarding() {
                   height: orbitSize * 0.94,
                   borderRadius: orbitSize,
                   borderWidth: 2,
-                  borderColor: state.preferences.appearance === "dark" ? t.border : "#E8DFEF",
+                  borderColor: isDark ? t.border : "#E8DFEF",
                 }}
               />
               <View
@@ -178,7 +169,7 @@ export function WelcomeOnboarding() {
                   height: orbitSize * 0.65,
                   borderRadius: orbitSize,
                   borderWidth: 2,
-                  borderColor: state.preferences.appearance === "dark" ? t.border : "#E9DDEB",
+                  borderColor: isDark ? t.border : "#E9DDEB",
                 }}
               />
               <View
@@ -188,7 +179,7 @@ export function WelcomeOnboarding() {
                   height: orbitSize * 0.35,
                   borderRadius: orbitSize,
                   borderWidth: 2,
-                  borderColor: state.preferences.appearance === "dark" ? t.border : "#E7D9EB",
+                  borderColor: isDark ? t.border : "#E7D9EB",
                   alignItems: "center",
                   justifyContent: "center",
                   backgroundColor: t.card,
@@ -258,7 +249,7 @@ export function WelcomeOnboarding() {
             accessibilityLabel="Get started"
             onPress={() => setStep(1)}
             style={({ pressed }) => ({
-              backgroundColor: state.preferences.appearance === "dark" ? t.accent : "#17141B",
+              backgroundColor: isDark ? t.accent : "#17141B",
               minHeight: 58,
               borderRadius: 30,
               justifyContent: "center",
@@ -268,7 +259,7 @@ export function WelcomeOnboarding() {
           >
             <Text
               style={{
-                color: state.preferences.appearance === "dark" ? t.onAccent : "#FFFFFF",
+                color: isDark ? t.onAccent : "#FFFFFF",
                 fontWeight: "700",
                 fontSize: 18,
               }}
