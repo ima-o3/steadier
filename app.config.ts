@@ -28,6 +28,7 @@ export default () => {
     },
     plugins: [
       ...base.expo.plugins,
+      "./plugins/with-screen-time.cjs",
       ...(scheme
         ? [
             [

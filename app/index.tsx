@@ -1,3 +1,4 @@
+import { ScreenTime } from "../src/components/ScreenTime";
 import { ScheduleRow } from "../src/components/ScheduleRow";
 import { Routines } from "../src/components/Routines";
 import { syncCalendars } from "../src/integrations/googleCalendar/client";
@@ -92,10 +93,7 @@ export default function Today() {
   );
   const commit = (fn: Parameters<typeof update>[0]) =>
     void update(fn).catch((e) => Alert.alert("Could not save", message(e)));
-  async function saveRating(
-    field: "energy" | "mood",
-    score: number,
-  ) {
+  async function saveRating(field: "energy" | "mood", score: number) {
     const request = ++checkinRequest.current;
     setCheckinStatus("Saving…");
     try {
@@ -769,6 +767,7 @@ export default function Today() {
           />
         </Row>
       </Card>
+      <ScreenTime />
       <Routines />
     </Page>
   );
