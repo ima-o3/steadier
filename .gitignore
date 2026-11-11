@@ -19,3 +19,7 @@ __pycache__/
 *.db
 *.db-wal
 *.db-shm
+
+# Local Expo module sources are authored native code.
+!modules/steadier-screen-time/ios/
+!modules/steadier-screen-time/ios/**
