@@ -1,5 +1,6 @@
 import { palette } from "../../src/components/palette";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Alert, Modal, Text, View, Pressable } from "react-native";
 import * as Crypto from "expo-crypto";
 import { useStore } from "../../src/components/AppState";
@@ -29,6 +30,8 @@ import { assessGoals } from "../../src/engines/goalFeasibility";
 import { localDate } from "../../src/utils/time";
 export default function Goals() {
   const { state: s, update } = useStore();
+  const params = useLocalSearchParams<{ new?: string }>();
+  const router = useRouter();
   const [selectedGoal, setSelectedGoal] = useState("");
   const [goalStatus, setGoalStatus] = useState<Goal["status"]>("active");
   const [formVisible, setFormVisible] = useState(false);
@@ -102,6 +105,13 @@ export default function Goals() {
     setMinimum("5");
     setFormVisible(true);
   }
+  useEffect(() => {
+    if (params.new === "1") {
+      newGoal();
+      router.setParams({ new: "" });
+    }
+  }, [params.new]);
+
   function remove(g: Goal) {
     Alert.alert(
       `Delete ${g.name}?`,
@@ -209,7 +219,7 @@ export default function Goals() {
       )}
       {!selectedGoal && (
         <>
-          <Button title="Add goal" onPress={newGoal} />
+          <Button title="+ Add goal" onPress={newGoal} />
           <Row>
             {(["active", "completed", "archived"] as const).map((tab) => (
               <Button
@@ -229,7 +239,7 @@ export default function Goals() {
       {s.goals.length === 0 && (
         <Card>
           <Heading>Make room for something that matters</Heading>
-          <Copy>Add your first goal. You can keep it small.</Copy>
+          <Copy>Start with one goal. You can always change it later.</Copy>
         </Card>
       )}
       <Modal
@@ -243,14 +253,14 @@ export default function Goals() {
         <Page>
           <Card>
             <Heading>{editing ? "Edit goal" : "New goal"}</Heading>
-            <Field label="Name" value={name} onChangeText={setName} />
+            <Field label="Goal name" value={name} onChangeText={setName} />
             <Field
-              label="Description"
+              label="What does this goal mean to you? (optional)"
               value={description}
               onChangeText={setDescription}
             />
             <Field
-              label="Desired deadline YYYY-MM-DD · optional"
+              label="Target date (YYYY-MM-DD, optional)"
               value={deadline}
               onChangeText={setDeadline}
             />
@@ -267,13 +277,13 @@ export default function Goals() {
               numeric
             />
             <Field
-              label="Remaining hours · lower estimate"
+              label="Time left — best estimate (hours)"
               value={min}
               onChangeText={setMin}
               numeric
             />
             <Field
-              label="Remaining hours · upper estimate"
+              label="Time left — upper estimate (hours)"
               value={max}
               onChangeText={setMax}
               numeric
@@ -300,7 +310,7 @@ export default function Goals() {
                   numeric
                 />
                 <Field
-                  label="Minimum viable progress · minutes"
+                  label="Smallest step that counts (minutes)"
                   value={minimum}
                   onChangeText={setMinimum}
                   numeric
