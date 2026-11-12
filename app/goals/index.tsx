@@ -1,5 +1,9 @@
+import {
+  DeadlinePicker,
+  displayDate,
+} from "../../src/components/DeadlinePicker";
 import { palette } from "../../src/components/palette";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Alert, Modal, Text, View, Pressable } from "react-native";
 import * as Crypto from "expo-crypto";
 import { useStore } from "../../src/components/AppState";
@@ -16,7 +20,7 @@ import {
 import { FeasibilitySimulator } from "../../src/components/FeasibilitySimulator";
 import { GoalProgress } from "../../src/components/GoalProgress";
 import { WorkRow } from "../../src/components/WorkRow";
-import { SwipeDelete } from "../../src/components/SwipeDelete";
+
 import { CapacityHours } from "../../src/components/CapacityHours";
 import { WorkEditor, WorkSelection } from "../../src/components/WorkEditor";
 import {
@@ -61,6 +65,14 @@ export default function Goals() {
       ? g.status === "active" || g.status === "paused"
       : g.status === tab;
   const visibleGoals = s.goals.filter((g) => inSection(g));
+  useEffect(() => {
+    if (s.firstGoalRequested) {
+      newGoal();
+      void update((old) => ({ ...old, firstGoalRequested: false })).catch(
+        () => {},
+      );
+    }
+  }, [s.firstGoalRequested]);
   function deleteWork(kind: "milestone" | "action", id: string, title: string) {
     Alert.alert(
       `Delete ${title}?`,
@@ -157,6 +169,10 @@ export default function Goals() {
           Number.isNaN(Date.parse(deadline)))
       )
         throw new Error("Use a valid YYYY-MM-DD deadline.");
+      if (!frequency.trim() || !Number.isInteger(Number(frequency)))
+        throw new Error(
+          "Days per week must be a whole number from 1 to 7. For shorter sessions, change the minutes per session instead.",
+        );
       for (const v of [importance, priority, frequency, minimum])
         if (!Number.isFinite(Number(v)) || Number(v) < 1)
           throw new Error(
@@ -248,42 +264,41 @@ export default function Goals() {
       >
         <Page>
           <Card>
-            <Heading>{editing ? "Edit goal" : "New goal"}</Heading>
-            <Field label="Name" value={name} onChangeText={setName} />
+            <Row>
+              <View style={{ flex: 1 }}>
+                <Heading>{editing ? "Edit goal" : "New goal"}</Heading>
+              </View>
+              {!!editing && (
+                <Button
+                  title="⋯ Goal options"
+                  onPress={() => {
+                    const goal = s.goals.find((g) => g.id === editing);
+                    if (goal)
+                      Alert.alert("Goal options", goal.name, [
+                        {
+                          text: "Delete goal",
+                          style: "destructive",
+                          onPress: () => remove(goal),
+                        },
+                        { text: "Cancel", style: "cancel" },
+                      ]);
+                  }}
+                />
+              )}
+            </Row>
             <Field
-              label="Description"
+              label="Goal name · e.g. Read more"
+              prominent
+              value={name}
+              onChangeText={setName}
+            />
+            <Field
+              label="Description · optional"
+              multiline
               value={description}
               onChangeText={setDescription}
             />
-            <Field
-              label="Desired deadline YYYY-MM-DD · optional"
-              value={deadline}
-              onChangeText={setDeadline}
-            />
-            <Field
-              label="Personal importance 1–5"
-              value={importance}
-              onChangeText={setImportance}
-              numeric
-            />
-            <Field
-              label="Priority · 1 is highest"
-              value={priority}
-              onChangeText={setPriority}
-              numeric
-            />
-            <Field
-              label="Remaining hours · lower estimate"
-              value={min}
-              onChangeText={setMin}
-              numeric
-            />
-            <Field
-              label="Remaining hours · upper estimate"
-              value={max}
-              onChangeText={setMax}
-              numeric
-            />
+            <DeadlinePicker value={deadline} onChange={setDeadline} />
             <Button
               title={
                 goalDetails
@@ -295,18 +310,47 @@ export default function Goals() {
             {goalDetails && (
               <>
                 <Field
+                  label="How much this matters · 1–5"
+                  value={importance}
+                  onChangeText={setImportance}
+                  numeric
+                />
+                <Field
+                  label="Order among equally important goals · 1 first"
+                  value={priority}
+                  onChangeText={setPriority}
+                  numeric
+                />
+                <Field
+                  label="Remaining hours · lower estimate"
+                  value={min}
+                  onChangeText={setMin}
+                  numeric
+                />
+                <Field
+                  label="Remaining hours · upper estimate"
+                  value={max}
+                  onChangeText={setMax}
+                  numeric
+                />
+                <Copy small>
+                  Importance chooses what matters most. Order breaks ties
+                  between equally important goals. Hours estimate the work left;
+                  days and minutes describe your minimum weekly aim.
+                </Copy>
+                <Field
                   label="Category"
                   value={category}
                   onChangeText={setCategory}
                 />
                 <Field
-                  label="Days of work per week"
+                  label="Days per week · whole number 1–7"
                   value={frequency}
                   onChangeText={setFrequency}
                   numeric
                 />
                 <Field
-                  label="Minimum viable progress · minutes"
+                  label="Minutes per session"
                   value={minimum}
                   onChangeText={setMinimum}
                   numeric
@@ -334,16 +378,6 @@ export default function Goals() {
               <Copy small>
                 This older goal remains paused until you choose another status.
               </Copy>
-            )}
-            {!!editing && (
-              <Button
-                title="Delete goal"
-                disabled={saving}
-                onPress={() => {
-                  const g = s.goals.find((g) => g.id === editing);
-                  if (g) remove(g);
-                }}
-              />
             )}
             <Button
               title={saving ? "Saving…" : "Save goal"}
@@ -374,16 +408,34 @@ export default function Goals() {
             localDate(s.preferences.zone),
           );
           return (
-            <SwipeDelete key={g.id} name={g.name} onDelete={() => remove(g)}>
+            <View key={g.id}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Open goal: ${g.name}`}
                 onPress={() => setSelectedGoal(g.id)}
               >
                 <Card>
-                  <Heading>{g.name}</Heading>
+                  <Row>
+                    <View style={{ flex: 1 }}>
+                      <Heading>{g.name}</Heading>
+                    </View>
+                    <Button
+                      title="⋯ Goal options"
+                      onPress={() =>
+                        Alert.alert("Goal options", g.name, [
+                          { text: "Edit goal", onPress: () => edit(g) },
+                          {
+                            text: "Delete goal",
+                            style: "destructive",
+                            onPress: () => remove(g),
+                          },
+                          { text: "Cancel", style: "cancel" },
+                        ])
+                      }
+                    />
+                  </Row>
                   <Copy small>
-                    {g.deadline || "No deadline"} · Priority {g.priority}
+                    {displayDate(g.deadline || "")} · Priority {g.priority}
                     {g.status === "paused" ? " · Previously paused" : ""}
                   </Copy>
                   <Copy>{result.status}</Copy>
@@ -392,23 +444,41 @@ export default function Goals() {
                     <Copy small>
                       {result.missing[0] ||
                         result.bottlenecks[0] ||
-                        "Required effort may exceed sustainable capacity."}
+                        "This goal may need more time than your schedule allows."}
                     </Copy>
                   )}
                 </Card>
               </Pressable>
-            </SwipeDelete>
+            </View>
           );
         })}
       {s.goals
         .filter((g) => g.id === selectedGoal)
         .map((g) => (
           <Card key={g.id}>
-            <Heading>{g.name}</Heading>
+            <Row>
+              <View style={{ flex: 1 }}>
+                <Heading>{g.name}</Heading>
+              </View>
+              <Button
+                title="⋯ Goal options"
+                onPress={() =>
+                  Alert.alert("Goal options", g.name, [
+                    { text: "Edit goal", onPress: () => edit(g) },
+                    {
+                      text: "Delete goal",
+                      style: "destructive",
+                      onPress: () => remove(g),
+                    },
+                    { text: "Cancel", style: "cancel" },
+                  ])
+                }
+              />
+            </Row>
             {!!g.description && <Copy>{g.description}</Copy>}
             <Copy small>
               {g.status === "paused" ? "Paused · " : ""}
-              {g.deadline || "No deadline"} · priority {g.priority}
+              {displayDate(g.deadline || "")} · priority {g.priority}
             </Copy>
             <Copy>
               {
@@ -593,7 +663,9 @@ export default function Goals() {
       {!selectedGoal && <FeasibilitySimulator />}
       <Button
         title={
-          capacityVisible ? "Hide capacity details" : "View capacity details"
+          capacityVisible
+            ? "Hide available-time details"
+            : "View available-time details"
         }
         onPress={() => setCapacityVisible(!capacityVisible)}
       />
@@ -606,7 +678,7 @@ export default function Goals() {
               {(report.required.high / 60).toFixed(1)} h/week
             </Copy>
             <Copy>
-              Sustainable: {(report.capacity.low / 60).toFixed(1)}–
+              Time to plan: {(report.capacity.low / 60).toFixed(1)}–
               {(report.capacity.high / 60).toFixed(1)} h/week
             </Copy>
             <CapacityHours />
@@ -621,10 +693,10 @@ export default function Goals() {
               </Copy>
             ))}
             <Copy small>
-              Workload/capacity ratio: {report.ratio?.toFixed(2) ?? "unknown"} ·
-              peak projected weekly overload:{" "}
-              {(report.peakWeeklyOverload / 60).toFixed(1)} h · scheduling
-              margin: {(report.buffer / 60).toFixed(1)} h
+              Work needed ÷ available time:{" "}
+              {report.ratio?.toFixed(2) ?? "unknown"} · peak projected weekly
+              overload: {(report.peakWeeklyOverload / 60).toFixed(1)} h ·
+              scheduling margin: {(report.buffer / 60).toFixed(1)} h
             </Copy>
           </Card>
         </>

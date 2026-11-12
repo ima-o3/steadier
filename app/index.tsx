@@ -386,28 +386,6 @@ export default function Today() {
           before recording personal observations.
         </Copy>
       )}
-      {!s.onboarded && (
-        <Card>
-          <Heading>A steadier day</Heading>
-          <Copy>
-            Start with a check-in or add a goal. Everything is optional.
-            Settings lets you choose your routine and connect a calendar.
-          </Copy>
-          <Button
-            title="Start with my own data"
-            onPress={() => commit((old) => ({ ...old, onboarded: true }))}
-          />
-          <Button
-            title="Explore deterministic demo"
-            disabled={
-              s.goals.length > 0 ||
-              s.checkins.length > 0 ||
-              s.commitments.length > 0
-            }
-            onPress={() => commit(demoState)}
-          />
-        </Card>
-      )}
       <View
         onLayout={(event) => {
           checkinY.current = event.nativeEvent.layout.y;
@@ -534,7 +512,7 @@ export default function Today() {
         <Copy small>
           {feasibility.status === "Insufficient information"
             ? "Add remaining effort estimates and deadlines in Goals."
-            : `Estimated workload ${(feasibility.required.low / 60).toFixed(1)}–${(feasibility.required.high / 60).toFixed(1)} h/week; sustainable capacity ${(feasibility.capacity.low / 60).toFixed(1)}–${(feasibility.capacity.high / 60).toFixed(1)} h/week. See Goals for assumptions and options.`}
+            : `Estimated workload ${(feasibility.required.low / 60).toFixed(1)}–${(feasibility.required.high / 60).toFixed(1)} h/week; planned available time ${(feasibility.capacity.low / 60).toFixed(1)}–${(feasibility.capacity.high / 60).toFixed(1)} h/week. See Goals for planning details.`}
         </Copy>
       </Card>
       <Card>
@@ -601,7 +579,7 @@ export default function Today() {
                 !row.item
                   ? "Fixed"
                   : row.item.kind === "habit"
-                    ? "Recovery · Small routine"
+                    ? "Rest · Habit"
                     : row.item.locked
                       ? "Pinned"
                       : "Suggested"
@@ -754,7 +732,7 @@ export default function Today() {
         {scheduleFilter !== "all" &&
           !items.some((i) => i.kind === scheduleFilter) && (
             <Copy small>
-              No {scheduleFilter === "task" ? "focus tasks" : "small routines"}{" "}
+              No {scheduleFilter === "task" ? "focus tasks" : "habits"}{" "}
               scheduled. Choose Today to see everything.
             </Copy>
           )}
