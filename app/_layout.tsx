@@ -1,5 +1,11 @@
+import {
+  needsWelcome,
+  completeTutorial,
+} from "../src/features/onboarding/flow";
+import { Welcome } from "../src/components/Welcome";
+import { useStore } from "../src/components/AppState";
 import React, { useEffect } from "react";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { Text, View } from "react-native";
 import type { ErrorBoundaryProps } from "expo-router";
@@ -8,6 +14,13 @@ import { useTheme } from "../src/components/ui";
 import { TabIcon } from "../src/components/TabIcon";
 function Navigation() {
   const t = useTheme();
+  const { state, update } = useStore();
+  const router = useRouter();
+  useEffect(() => {
+    if (state.firstGoalRequested) router.replace("/goals");
+  }, [state.firstGoalRequested]);
+  if (needsWelcome(state))
+    return <Welcome onComplete={() => update(completeTutorial)} />;
   return (
     <Tabs
       screenOptions={{
@@ -52,6 +65,7 @@ function Navigation() {
           tabBarIcon: ({ color }) => <TabIcon name="calendar" color={color} />,
         }}
       />
+      <Tabs.Screen name="tutorial" options={{ href: null }} />
       <Tabs.Screen name="habits/index" options={{ href: null }} />
       <Tabs.Screen
         name="settings/index"

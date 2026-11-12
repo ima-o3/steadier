@@ -93,6 +93,8 @@ export interface Habit {
   daysPerWeek: number;
 }
 export interface State {
+  tutorialCompleted?: boolean;
+  firstGoalRequested?: boolean;
   checkins: Checkin[];
   goals: Goal[];
   milestones: Milestone[];
