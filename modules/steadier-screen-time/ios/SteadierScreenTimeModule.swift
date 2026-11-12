@@ -13,10 +13,15 @@ public class SteadierScreenTimeModule: Module {
       @unknown default: return "unknown"
       }
     }.runOnQueue(.main)
-    AsyncFunction("requestAuthorization") { () async throws -> String in
-      try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
-      return AuthorizationCenter.shared.authorizationStatus == .approved ? "approved" : "denied"
+    AsyncFunction("requestAuthorization") { (promise: Promise) in
+      Task { @MainActor in
+        do {
+          try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+          promise.resolve(AuthorizationCenter.shared.authorizationStatus == .approved ? "approved" : "denied")
+        } catch {
+          promise.reject(error)
+        }
+      }
     }.runOnQueue(.main)
   }
 }
-
