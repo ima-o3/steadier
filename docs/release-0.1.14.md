@@ -15,3 +15,5 @@ The native date picker 9.2.1 is the only added dependency, selected by Expo SDK 
 The brief referenced v0.1.11; that version already shipped for recovery. Its notes are preserved and cross-referenced. This update uses 0.1.14 / build 15 to avoid the existing 0.1.13 / build 14 release. No cloud build, TestFlight upload or merge is included.
 
 PR base is codex/build14-baseline (the existing local build-14 history), because origin/main predates the already-tested TestFlight releases. This avoids bundling those earlier releases into this review. No changes are pushed to main.
+
+Combined release includes the build-14 Screen Time integration and its ITMS-91179 packaging correction: ExtensionKit product type, EXAppExtensionAttributes metadata, and embedding in Steadier.app/Extensions. The previous binary was rejected by Apple after upload. Native compilation and Apple validation must verify the corrected package. User approved the combined build on November 12.
