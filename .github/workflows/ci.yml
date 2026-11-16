@@ -1,0 +1,34 @@
+name: Typecheck and tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pnpm
+        run: npm install --global pnpm@11.25.0
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: TypeScript and component tests
+        run: pnpm test
+      - name: iOS JavaScript bundle validation
+        run: pnpm verify:ios
+      - name: IPA packaging unit tests
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
