@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import { Routines } from "../../src/components/Routines";
 import React, { useState, useEffect } from "react";
 import { Alert, Linking } from "react-native";
@@ -26,6 +27,7 @@ import {
 } from "../../src/integrations/googleCalendar/client";
 import { localDate } from "../../src/utils/time";
 export default function Settings() {
+  const router = useRouter();
   const { state: s, update } = useStore(),
     [calendars, setCalendars] = useState<CalendarEntry[]>([]),
     [busy, setBusy] = useState(false),
@@ -265,7 +267,7 @@ export default function Settings() {
         />
       </Card>
       <Card>
-        <Heading>Your routine</Heading>
+        <Heading>Your daily schedule</Heading>
         <Field label="IANA timezone" value={zone} onChangeText={setZone} />
         <Field
           label="Work start hour · 9 or 9.5"
@@ -310,18 +312,18 @@ export default function Settings() {
           numeric
         />
         <Field
-          label="Conservative capacity lower percent"
+          label="Share of free time to plan · lower %"
           value={low}
           onChangeText={setLow}
           numeric
         />
         <Field
-          label="Conservative capacity upper percent"
+          label="Share of free time to plan · upper %"
           value={high}
           onChangeText={setHigh}
           numeric
         />
-        <Button title="Save routine and assumptions" onPress={saveRoutine} />
+        <Button title="Save daily schedule" onPress={saveRoutine} />
         <Copy small>
           Hours outside your working window and the protected rest window cannot
           receive suggestions. Calendar availability is not guaranteed
@@ -396,6 +398,10 @@ export default function Settings() {
             />
           ))}
       </Card>
+      <Button
+        title="Replay tutorial"
+        onPress={() => router.push("/tutorial")}
+      />
       <Routines />
       <Card>
         <Heading>Preferences</Heading>

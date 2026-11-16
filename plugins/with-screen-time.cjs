@@ -56,6 +56,21 @@ module.exports = function withScreenTime(config) {
     )
       return c;
     const target = p.addTarget(name, "app_extension", name, bundle);
+    // DeviceActivityReport is an ExtensionKit extension, not an NSExtension.
+    target.pbxNativeTarget.productType = '"com.apple.product-type.extensionkit-extension"';
+    const product = target.pbxNativeTarget.productReference;
+    let embedded = false;
+    for (const phase of Object.values(p.hash.project.objects.PBXCopyFilesBuildPhase || {})) {
+      if (!phase || typeof phase !== "object") continue;
+      const embedsReport = phase.files?.some(file => p.hash.project.objects.PBXBuildFile[file.value]?.fileRef === product);
+      if (embedsReport) {
+        phase.dstPath = '"$(CONTENTS_FOLDER_PATH)/Extensions"';
+        phase.dstSubfolderSpec = 16;
+        embedded = true;
+      }
+    }
+
+    if (!embedded) throw new Error("Screen Time extension embedding phase was not found; refusing legacy packaging.");
     p.addBuildPhase(
       [name + "/SteadierReport.swift"],
       "PBXSourcesBuildPhase",
@@ -87,3 +102,4 @@ module.exports = function withScreenTime(config) {
     return c;
   });
 };
+

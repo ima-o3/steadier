@@ -175,12 +175,14 @@ export function Field({
   onChangeText,
   numeric = false,
   multiline = false,
+  prominent = false,
 }: {
   label: string;
   value: string;
   onChangeText: (v: string) => void;
   numeric?: boolean;
   multiline?: boolean;
+  prominent?: boolean;
 }) {
   const t = useTheme();
   return (
@@ -194,13 +196,15 @@ export function Field({
         multiline={multiline}
         autoCapitalize="sentences"
         style={{
-          minHeight: 48,
+          minHeight: multiline ? 100 : 48,
+          textAlignVertical: multiline ? "top" : "center",
           padding: 12,
           borderWidth: 1,
           borderColor: t.border,
           borderRadius: 16,
           color: t.text,
-          fontSize: 17,
+          fontSize: prominent ? 23 : 17,
+          fontWeight: prominent ? "600" : "400",
         }}
       />
     </View>

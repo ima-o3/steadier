@@ -28,6 +28,7 @@ export default () => {
     },
     plugins: [
       ...base.expo.plugins,
+      "@react-native-community/datetimepicker",
       "./plugins/with-screen-time.cjs",
       ...(scheme
         ? [

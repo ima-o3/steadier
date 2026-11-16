@@ -11,7 +11,7 @@ const native =
     ? requireOptionalNativeModule<ScreenTimeModule>("SteadierScreenTime")
     : null;
 const Report = native ? requireNativeView("SteadierScreenTime") : null;
-export function ScreenTime() {
+export function ScreenTime({ refreshable = false }: { refreshable?: boolean }) {
   const [reportKey, setReportKey] = useState(0);
   const [status, setStatus] = useState("loading"),
     [busy, setBusy] = useState(false),
@@ -75,6 +75,15 @@ export function ScreenTime() {
           title={busy ? "Requesting access…" : "Connect Screen Time"}
           disabled={busy}
           onPress={() => void connect()}
+        />
+      )}
+      {refreshable && native && status === "approved" && (
+        <Button
+          title="Refresh Screen Time report"
+          onPress={() => {
+            setReportKey((k) => k + 1);
+            refresh();
+          }}
         />
       )}
       {!!error && <Copy small>{error}</Copy>}

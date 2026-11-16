@@ -370,3 +370,26 @@ it("routine deletion cleans relational logs but preserves completed plan history
   ]);
   expect(restored.revisions).toEqual(old.revisions);
 });
+it("preserves tutorial completion and personal records across reopen", async () => {
+  const state = await openStore();
+  await saveState({
+    ...state,
+    tutorialCompleted: true,
+    onboarded: true,
+    goals: [goal],
+  });
+  const reopened = await openStore();
+  expect(reopened.tutorialCompleted).toBe(true);
+  expect(reopened.onboarded).toBe(true);
+  expect(reopened.goals).toEqual([goal]);
+});
+import { completeTutorial, needsWelcome } from "../features/onboarding/flow";
+it("shows welcome only for empty first-run state and replay preserves goals", () => {
+  expect(needsWelcome(defaultState)).toBe(true);
+  expect(needsWelcome({ ...defaultState, goals: [goal] })).toBe(false);
+  const old = { ...defaultState, goals: [goal], onboarded: true };
+  const next = completeTutorial(old);
+  expect(next.goals).toBe(old.goals);
+  expect(next.firstGoalRequested).toBe(true);
+  expect(needsWelcome(next)).toBe(false);
+});

@@ -8,17 +8,21 @@ import { prefs, goal, action } from "./fixtures";
 jest.setTimeout(20000);
 jest.mock("../components/AppState", () => ({ useStore: jest.fn() }));
 jest.mock("expo-crypto", () => ({ randomUUID: () => "new-goal" }));
+jest.mock("@react-native-community/datetimepicker", () => "DateTimePicker");
 let latest: State;
 function Harness({
   fail = false,
   extra = false,
   paused = false,
+  firstGoal = false,
 }: {
   fail?: boolean;
   extra?: boolean;
   paused?: boolean;
+  firstGoal?: boolean;
 }) {
   const [state, setState] = useState<State>({
+    firstGoalRequested: firstGoal,
     preferences: prefs,
     goals: extra
       ? [goal, { ...goal, id: "other", name: "Health" }]
@@ -90,29 +94,42 @@ test("visible goal controls add, edit and remove a goal with confirmation", asyn
     screen.getByRole("button", { name: "Open goal: Portfolio" }),
   );
   await fireEvent.press(screen.getByRole("button", { name: "Edit goal" }));
-  expect(screen.getByLabelText("Name").props.value).toBe("Portfolio");
+  expect(screen.getByLabelText("Goal name · e.g. Read more").props.value).toBe(
+    "Portfolio",
+  );
   await fireEvent.changeText(
-    screen.getByLabelText("Name"),
+    screen.getByLabelText("Goal name · e.g. Read more"),
     "Updated portfolio",
   );
   await fireEvent.press(screen.getByRole("button", { name: "Save goal" }));
   expect(latest.goals[0]!.name).toBe("Updated portfolio");
   await fireEvent.press(screen.getByRole("button", { name: "Back to goals" }));
   await fireEvent.press(screen.getByRole("button", { name: "Add goal" }));
-  expect(screen.getByLabelText("Name").props.value).toBe("");
-  await fireEvent.changeText(screen.getByLabelText("Name"), "Read more");
+  expect(screen.getByLabelText("Goal name · e.g. Read more").props.value).toBe(
+    "",
+  );
+  await fireEvent.changeText(
+    screen.getByLabelText("Goal name · e.g. Read more"),
+    "Read more",
+  );
   await fireEvent.press(screen.getByRole("button", { name: "Save goal" }));
   expect(latest.goals).toHaveLength(2);
   expect(latest.goals.find((g) => g.id === "new-goal")?.category).toBe(
     "Personal",
   );
+  expect(
+    screen.queryByLabelText("Show delete for Updated portfolio"),
+  ).toBeNull();
   await fireEvent.press(
-    screen.getByLabelText("Show delete for Updated portfolio"),
+    screen.getByRole("button", { name: "Open goal: Updated portfolio" }),
   );
-  expect(latest.goals).toHaveLength(2);
-  await fireEvent.press(
-    screen.getByRole("button", { name: "Delete Updated portfolio" }),
-  );
+  await fireEvent.press(screen.getByRole("button", { name: "⋯ Goal options" }));
+  await act(async () => {
+    alert.mock.calls
+      .at(-1)?.[2]
+      ?.find((b) => b.text === "Delete goal")
+      ?.onPress?.();
+  });
   expect(latest.goals).toHaveLength(2);
   await act(async () => {
     alert.mock.calls
@@ -127,9 +144,14 @@ test("failed saves keep the goal form and entered name available", async () => {
   jest.spyOn(Alert, "alert");
   await render(<Harness fail />);
   await fireEvent.press(screen.getByRole("button", { name: "Add goal" }));
-  await fireEvent.changeText(screen.getByLabelText("Name"), "Keep this draft");
+  await fireEvent.changeText(
+    screen.getByLabelText("Goal name · e.g. Read more"),
+    "Keep this draft",
+  );
   await fireEvent.press(screen.getByRole("button", { name: "Save goal" }));
-  expect(screen.getByLabelText("Name").props.value).toBe("Keep this draft");
+  expect(screen.getByLabelText("Goal name · e.g. Read more").props.value).toBe(
+    "Keep this draft",
+  );
   expect(latest.goals).toHaveLength(1);
   expect(Alert.alert).toHaveBeenCalledWith("Goal", "Storage unavailable");
 });
@@ -299,4 +321,40 @@ test("new milestones use the selected goal and keep existing actions unchanged",
   ).toMatchObject({ goalId: "other", completed: false });
   expect(latest.actions[0]?.milestoneId).toBe("m");
   expect(screen.queryByLabelText("Milestone name")).toBeNull();
+});
+
+test("fractional days are rejected without rounding or changing saved goals", async () => {
+  const alert = jest.spyOn(Alert, "alert");
+  await render(<Harness />);
+  await fireEvent.press(screen.getByRole("button", { name: "Add goal" }));
+  await fireEvent.changeText(
+    screen.getByLabelText("Goal name · e.g. Read more"),
+    "Small project",
+  );
+  await fireEvent.press(
+    screen.getByRole("button", { name: "Planning details · optional" }),
+  );
+  await fireEvent.changeText(
+    screen.getByLabelText("Days per week · whole number 1–7"),
+    "0.5",
+  );
+  await fireEvent.press(screen.getByRole("button", { name: "Save goal" }));
+  expect(alert).toHaveBeenCalledWith(
+    "Goal",
+    expect.stringContaining("whole number"),
+  );
+  expect(latest.goals).toHaveLength(1);
+});
+
+test("tutorial handoff opens a goal form and saves without removing existing goals", async () => {
+  await render(<Harness firstGoal />);
+  expect(screen.getByLabelText("Goal name · e.g. Read more")).toBeTruthy();
+  await fireEvent.changeText(
+    screen.getByLabelText("Goal name · e.g. Read more"),
+    "A gentle start",
+  );
+  await fireEvent.press(screen.getByRole("button", { name: "Save goal" }));
+  expect(latest.goals.map((g) => g.name)).toContain("A gentle start");
+  expect(latest.goals.map((g) => g.name)).toContain("Portfolio");
+  expect(latest.firstGoalRequested).toBe(false);
 });
